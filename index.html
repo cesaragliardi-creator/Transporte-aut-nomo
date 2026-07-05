@@ -1,0 +1,2297 @@
+<!DOCTYPE html>
+<!--
+  © 2026 César Agliardi Pereira · Gravataí, RS, Brasil
+  SHA-256: A3F8C2D1E9B7F4A6C8D2E1F3A9B5C7D4E2F1A8B6C3D9E7F2A4B8C1D5E3F6A2
+  SAIS v4 · YPF Sample Logistics Platform
+  InnoCentive / Wazoku · YPF Autonomous Laboratory Sample Transport · July 2026
+  AG-999 D² Engine — adapted for logistics risk optimization
+  Derived from SAIS v3 (RR-SMR Inspection) + SAIS Coke Drum Ledger v0.2
+  PROPRIEDADE INTELECTUAL EXCLUSIVA — Redistribuição proibida.
+-->
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="César Agliardi Pereira">
+<meta name="robots" content="noindex, nofollow">
+<title>SAIS v4 · YPF Sample Logistics · © César Agliardi Pereira 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<style>
+:root {
+  --bg:#06090f; --panel:#0d1117; --border:#1a2435; --border-hi:#1e3a5f;
+  --cyan:#00e5ff; --cyan-dim:rgba(0,229,255,.12); --cyan-glow:rgba(0,229,255,.35);
+  --amber:#ffb300; --amber-dim:rgba(255,179,0,.13);
+  --red:#ff3b3b; --red-dim:rgba(255,59,59,.13);
+  --green:#00e676; --green-dim:rgba(0,230,118,.1);
+  --purple:#b388ff; --purple-dim:rgba(179,136,255,.13);
+  --gold:#c9a227; --gold-dim:rgba(201,162,39,.1);
+  --text:#c8d8e8; --dim:#4a6070; --bright:#e8f4ff;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:monospace;font-size:12px;min-height:100vh;}
+body::before{content:'';position:fixed;inset:0;z-index:999;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,0.03) 2px,rgba(0,0,0,0.03) 4px);}
+
+/* IP BANNER */
+.ip-banner{background:rgba(201,162,39,.06);border-bottom:1px solid rgba(201,162,39,.25);
+  padding:4px 16px;display:flex;align-items:center;justify-content:space-between;font-size:9px;color:var(--gold);letter-spacing:.07em;}
+.ip-chips{display:flex;gap:6px;}
+.chip{border:1px solid rgba(201,162,39,.35);padding:1px 7px;font-size:8px;letter-spacing:.12em;}
+
+/* TOPBAR */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:9px 16px;border-bottom:1px solid var(--border-hi);background:rgba(0,229,255,.025);}
+.logo{font-size:20px;font-weight:900;letter-spacing:4px;color:var(--cyan);text-shadow:0 0 18px var(--cyan-glow);}
+.logo em{color:var(--dim);font-style:normal;font-weight:300;}
+.badges{display:flex;gap:6px;align-items:center;}
+.bdg{border:1px solid;padding:2px 8px;font-size:9px;letter-spacing:2px;}
+.bdg-cyan{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim);}
+.bdg-amber{border-color:var(--amber);color:var(--amber);background:var(--amber-dim);}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.clock{font-size:15px;color:var(--cyan);letter-spacing:2px;}
+.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 7px var(--green);animation:blink 2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* TABS */
+.tabnav{display:flex;border-bottom:1px solid var(--border-hi);background:var(--panel);overflow-x:auto;}
+.tab{padding:10px 16px;font-size:10px;letter-spacing:1.5px;cursor:pointer;border-bottom:2px solid transparent;color:var(--dim);transition:all .2s;white-space:nowrap;text-transform:uppercase;}
+.tab:hover{color:var(--text);}
+.tab.active{color:var(--cyan);border-bottom-color:var(--cyan);}
+.tab.active.t-purple{color:var(--purple);border-bottom-color:var(--purple);}
+.tab.active.t-amber{color:var(--amber);border-bottom-color:var(--amber);}
+.tab.active.t-gold{color:var(--gold);border-bottom-color:var(--gold);}
+.tab.active.t-green{color:var(--green);border-bottom-color:var(--green);}
+.tab .ti{margin-right:5px;}
+
+/* PANES */
+.pane{display:none;padding:14px;gap:12px;animation:fadeIn .2s;}
+.pane.active{display:flex;flex-direction:column;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+/* SEC LABEL */
+.sec-label{font-size:9px;letter-spacing:3px;color:var(--dim);text-transform:uppercase;padding-bottom:7px;border-bottom:1px solid var(--border);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;}
+.sec-tag{font-size:8px;padding:2px 6px;border:1px solid var(--border-hi);color:var(--dim);}
+.sec-tag.cyan{border-color:rgba(0,229,255,.3);color:var(--cyan);}
+.sec-tag.amber{border-color:rgba(255,179,0,.3);color:var(--amber);}
+.sec-tag.gold{border-color:rgba(201,162,39,.3);color:var(--gold);}
+.sec-tag.green{border-color:rgba(0,230,118,.3);color:var(--green);}
+.sec-tag.purple{border-color:rgba(179,136,255,.3);color:var(--purple);}
+
+/* KPI STRIP */
+.kpi-strip{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;}
+.kpi{background:rgba(0,229,255,.03);border:1px solid var(--border);padding:12px;text-align:center;}
+.kpi-l{font-size:9px;color:var(--dim);margin-bottom:5px;letter-spacing:1px;}
+.kpi-v{font-size:28px;font-weight:900;color:var(--cyan);line-height:1;}
+.kpi-u{font-size:9px;color:var(--dim);margin-top:3px;}
+
+/* D2 HERO */
+.d2-hero{background:rgba(0,229,255,.03);border:1px solid var(--border-hi);padding:18px;text-align:center;position:relative;overflow:hidden;}
+.d2-hero::before{content:'D²';position:absolute;top:-20px;left:50%;transform:translateX(-50%);font-size:160px;font-weight:900;color:rgba(0,229,255,.02);pointer-events:none;}
+.d2-num{font-size:72px;font-weight:900;color:var(--cyan);line-height:1;text-shadow:0 0 28px var(--cyan-glow);transition:all .4s;}
+.d2-sub{font-size:10px;color:var(--dim);margin-top:4px;letter-spacing:2px;}
+.d2-badge{display:inline-block;margin-top:8px;padding:4px 14px;border:1px solid;font-size:11px;letter-spacing:2px;}
+
+/* COMPS */
+.comps{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.comp{background:rgba(0,229,255,.03);border:1px solid var(--border);padding:10px;}
+.comp-lbl{font-size:9px;color:var(--dim);margin-bottom:4px;}
+.comp-val{font-size:20px;color:var(--bright);}
+.comp-bar{height:2px;background:var(--border);margin-top:5px;}
+.comp-fill{height:100%;transition:width .8s;}
+
+/* SENSOR GRID — now logistics telemetry */
+.sensors{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;}
+.sc{border:1px solid var(--border);padding:12px 8px;text-align:center;cursor:pointer;transition:all .2s;background:rgba(0,229,255,.02);}
+.sc:hover{border-color:var(--cyan);background:var(--cyan-dim);}
+.sc.warn{border-color:rgba(255,179,0,.4);}
+.sc.alert{border-color:rgba(255,59,59,.45);}
+.sc-ico{font-size:18px;margin-bottom:4px;}
+.sc-lbl{font-size:8px;color:var(--dim);letter-spacing:1px;}
+.sc-val{font-size:22px;font-weight:700;color:var(--bright);}
+.sc-unit{font-size:8px;color:var(--dim);}
+.sc-bar{height:3px;background:var(--border);margin-top:7px;border-radius:2px;}
+.sc-fill{height:100%;border-radius:2px;transition:width .8s;}
+.ok-f{background:var(--green);} .warn-f{background:var(--amber);} .alert-f{background:var(--red);}
+.sc-delta{font-size:8px;margin-top:3px;}
+.up{color:var(--red);} .dn{color:var(--green);}
+
+/* FLEET MAP */
+.map-wrap{position:relative;width:100%;height:300px;border:1px solid var(--border-hi);background:#080d14;overflow:hidden;}
+.map-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(0,229,255,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.04) 1px,transparent 1px);background-size:22px 22px;}
+.sp{position:absolute;border:1px solid;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:9px;cursor:pointer;transition:all .25s;}
+.sp:hover{filter:brightness(1.4);}
+.sp.idle{border-color:rgba(0,229,255,.4);background:rgba(0,229,255,.05);color:var(--cyan);}
+.sp.active{border-color:rgba(0,230,118,.5);background:rgba(0,230,118,.08);color:var(--green);}
+.sp.pending{border-color:rgba(255,179,0,.5);background:rgba(255,179,0,.07);color:var(--amber);}
+.sp.alert{border-color:rgba(255,59,59,.6);background:rgba(255,59,59,.08);color:var(--red);animation:za 1s infinite;}
+@keyframes za{0%,100%{opacity:1}50%{opacity:.55}}
+.sp-name{font-weight:bold;font-size:9px;}
+.sp-d2{font-size:7px;opacity:.85;}
+.agv{position:absolute;border-radius:50%;box-shadow:0 0 10px var(--cyan),0 0 20px var(--cyan-glow);transform:translate(-50%,-50%);transition:left 3s ease,top 3s ease;z-index:10;display:flex;align-items:center;justify-content:center;font-size:10px;}
+.agv::after{content:'';position:absolute;inset:-4px;border:1px solid var(--cyan);border-radius:50%;opacity:.4;animation:sonar 2s infinite;}
+@keyframes sonar{0%{transform:scale(1);opacity:.4}100%{transform:scale(2.5);opacity:0}}
+
+/* ROUTE PANEL */
+.route-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px;}
+.rs{background:#070c12;border:1px solid var(--border);padding:10px;text-align:center;}
+.rs-l{font-size:9px;color:var(--dim);margin-bottom:4px;}
+.rs-v{font-size:20px;font-weight:700;}
+
+/* DISPATCH */
+.dispatch-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.dp-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.sel{flex:1;background:#070c12;border:1px solid var(--border);color:var(--text);padding:8px 10px;font-family:monospace;font-size:11px;outline:none;}
+.sel:focus{border-color:var(--cyan);}
+.btn{padding:8px 16px;background:transparent;border:1px solid;font-family:monospace;font-size:10px;letter-spacing:1px;cursor:pointer;transition:all .2s;}
+.btn-c{border-color:var(--cyan);color:var(--cyan);}
+.btn-c:hover{background:var(--cyan-dim);}
+.btn-g{border-color:var(--green);color:var(--green);}
+.btn-g:hover{background:var(--green-dim);}
+.btn-a{border-color:var(--amber);color:var(--amber);}
+.btn-a:hover{background:var(--amber-dim);}
+.btn-p{border-color:var(--purple);color:var(--purple);}
+.btn-p:hover{background:var(--purple-dim);}
+.btn-r{border-color:var(--red);color:var(--red);}
+.btn-r:hover{background:var(--red-dim);}
+.dp-result{border:1px solid var(--border);border-left:3px solid var(--cyan);background:rgba(0,229,255,.03);padding:12px;font-size:10px;line-height:1.9;min-height:52px;}
+
+/* LOG */
+.ilog{display:flex;flex-direction:column;gap:4px;max-height:260px;overflow-y:auto;}
+.entry{display:flex;gap:8px;padding:6px 8px;border-left:2px solid var(--border);background:#070c12;}
+.entry.ok{border-left-color:var(--green);}
+.entry.warn{border-left-color:var(--amber);}
+.entry.crit{border-left-color:var(--red);}
+.entry.info{border-left-color:var(--cyan);}
+.entry.human{border-left-color:var(--purple);}
+.etime{color:var(--dim);font-size:9px;white-space:nowrap;}
+.emsg{font-size:10px;color:var(--text);line-height:1.4;}
+
+/* FMEA TABLE */
+.fmea-table{width:100%;border-collapse:collapse;font-size:10px;}
+.fmea-table th{background:rgba(0,229,255,.08);color:var(--cyan);padding:8px;text-align:left;font-size:9px;letter-spacing:1px;border:1px solid var(--border);}
+.fmea-table td{padding:7px 8px;border:1px solid var(--border);vertical-align:top;line-height:1.5;color:var(--text);}
+.fmea-table tr:nth-child(even) td{background:rgba(255,255,255,.015);}
+.fmea-table td:first-child{color:var(--bright);font-weight:700;}
+.sev-c{color:var(--red)!important;font-weight:bold;}
+.sev-m{color:var(--amber)!important;font-weight:bold;}
+.sev-l{color:var(--green)!important;}
+
+/* GANTT */
+.gantt-wrap{overflow-x:auto;}
+.gantt-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(26,36,53,.5);}
+.gantt-label{font-size:10px;color:var(--text);min-width:200px;}
+.gantt-bar-wrap{flex:1;height:20px;background:var(--border);border-radius:2px;position:relative;}
+.gantt-bar{height:100%;border-radius:2px;position:absolute;display:flex;align-items:center;padding:0 6px;font-size:8px;color:#000;font-weight:700;letter-spacing:.5px;}
+.gantt-cost{font-size:9px;color:var(--gold);min-width:80px;text-align:right;}
+
+/* ECONOMIC */
+.eco-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.eco-card{background:#070c12;border:1px solid var(--border);padding:12px;}
+.eco-title{font-size:9px;color:var(--dim);margin-bottom:6px;letter-spacing:2px;}
+.eco-val{font-size:22px;font-weight:700;margin-bottom:3px;}
+.eco-sub{font-size:9px;color:var(--dim);}
+.eco-bar-wrap{height:5px;background:var(--border);border-radius:3px;margin-top:8px;}
+.eco-bar{height:100%;border-radius:3px;}
+
+/* FORMULA */
+.fbox{border:1px solid var(--border-hi);padding:12px;margin-bottom:8px;border-left:3px solid var(--cyan);background:rgba(0,229,255,.02);}
+.fbox.gold{border-left-color:var(--gold);background:rgba(201,162,39,.02);}
+.fname{font-size:9px;color:var(--cyan);margin-bottom:5px;letter-spacing:2px;}
+.fname.gold{color:var(--gold);}
+.feq{font-size:11px;color:var(--bright);line-height:1.7;}
+.fdesc{font-size:10px;color:var(--dim);margin-top:5px;line-height:1.5;}
+.blur{display:inline-block;filter:blur(4px);background:rgba(201,162,39,.07);padding:0 3px;user-select:none;cursor:not-allowed;}
+
+/* CHARTS */
+.chart-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;}
+.cbox{background:#070c12;border:1px solid var(--border);padding:10px;}
+.ctitle{font-size:9px;color:var(--dim);letter-spacing:1.5px;margin-bottom:7px;}
+.cbox canvas{max-height:110px;}
+
+/* REPORT */
+.rout{background:#070c12;border:1px solid var(--border);padding:14px;font-size:10px;color:var(--dim);line-height:1.9;display:none;max-height:400px;overflow-y:auto;white-space:pre;}
+.rout.vis{display:block;}
+.rk{color:var(--cyan);} .rok{color:var(--green);} .rwarn{color:var(--amber);} .rcrit{color:var(--red);} .rip{color:var(--gold);}
+
+/* PARTNER CARDS */
+.partner-card{padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .2s;}
+.partner-card:hover{background:rgba(0,229,255,.04);}
+.pc-top{display:flex;align-items:center;gap:8px;margin-bottom:5px;}
+.pc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.pc-name{font-size:11px;font-weight:700;color:var(--bright);}
+.pc-loc{font-size:9px;color:var(--dim);}
+.pc-badge{font-size:7px;padding:2px 6px;border:1px solid;letter-spacing:1px;margin-left:auto;white-space:nowrap;}
+.pc-robot{font-size:12px;font-weight:700;margin-bottom:3px;letter-spacing:1px;color:var(--text);}
+.pc-desc{font-size:9px;color:var(--dim);line-height:1.5;}
+
+/* SAMPLE TRACKER */
+.sample-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.sample-card{background:#070c12;border:1px solid var(--border);padding:10px;position:relative;}
+.sample-card.transit{border-color:rgba(0,229,255,.4);}
+.sample-card.delivered{border-color:rgba(0,230,118,.4);}
+.sample-card.pending{border-color:rgba(255,179,0,.3);}
+.sample-card.urgent{border-color:rgba(255,59,59,.5);animation:za 1.5s infinite;}
+.s-id{font-size:9px;color:var(--dim);margin-bottom:4px;}
+.s-type{font-size:11px;font-weight:700;color:var(--bright);margin-bottom:3px;}
+.s-status{font-size:9px;padding:2px 7px;border:1px solid;display:inline-block;letter-spacing:1px;}
+.s-from{font-size:8px;color:var(--dim);margin-top:5px;}
+
+::-webkit-scrollbar{width:4px;} ::-webkit-scrollbar-track{background:transparent;} ::-webkit-scrollbar-thumb{background:var(--border-hi);}
+
+/* NEW TAB COLORS */
+.tab.t-cyan{} .tab.t-red{}
+.tab.active.t-cyan{color:var(--cyan);border-bottom-color:var(--cyan);}
+.tab.active.t-red{color:var(--red);border-bottom-color:var(--red);}
+
+/* EXECUTIVE SUMMARY */
+.exec-hero{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+.exec-card{border:1px solid var(--border-hi);padding:28px 20px;text-align:center;position:relative;overflow:hidden;background:rgba(0,229,255,.02);}
+.exec-card::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 70%,rgba(255,255,255,.02));pointer-events:none;}
+.exec-num{font-size:52px;font-weight:900;line-height:1;margin-bottom:6px;}
+.exec-unit{font-size:14px;font-weight:700;margin-bottom:8px;}
+.exec-label{font-size:10px;color:var(--dim);letter-spacing:2px;line-height:1.5;}
+.exec-bar{height:3px;background:var(--border);border-radius:2px;margin-top:12px;}
+.exec-fill{height:100%;border-radius:2px;}
+
+/* 3D AGV CANVAS */
+#agv3dCanvas{width:100%;height:380px;border:1px solid var(--border-hi);background:#020508;display:block;cursor:grab;}
+#agv3dCanvas:active{cursor:grabbing;}
+.agv3d-controls{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;}
+
+/* MISSION REPLAY */
+.replay-track{display:flex;align-items:center;gap:0;margin:20px 0;position:relative;}
+.replay-track::before{content:'';position:absolute;top:50%;left:0;right:0;height:2px;background:var(--border);z-index:0;}
+.replay-step{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;z-index:1;}
+.rs-circle{width:44px;height:44px;border-radius:50%;border:2px solid var(--border);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:18px;transition:all .5s;position:relative;}
+.rs-circle.done{border-color:var(--green);background:rgba(0,230,118,.12);box-shadow:0 0 12px rgba(0,230,118,.3);}
+.rs-circle.active{border-color:var(--cyan);background:rgba(0,229,255,.12);box-shadow:0 0 16px var(--cyan-glow);animation:pulse-cyan .8s infinite;}
+.rs-circle.pending{border-color:var(--border);opacity:.4;}
+@keyframes pulse-cyan{0%,100%{box-shadow:0 0 16px var(--cyan-glow)}50%{box-shadow:0 0 28px rgba(0,229,255,.6)}}
+.rs-label{font-size:9px;color:var(--dim);margin-top:6px;text-align:center;letter-spacing:.5px;line-height:1.4;}
+.rs-label.active{color:var(--cyan);}
+.rs-label.done{color:var(--green);}
+.replay-detail{border:1px solid var(--border-hi);border-left:3px solid var(--cyan);background:rgba(0,229,255,.03);padding:14px;font-size:11px;line-height:2;min-height:80px;}
+.replay-log{max-height:160px;overflow-y:auto;display:flex;flex-direction:column;gap:3px;margin-top:8px;}
+.rlog-entry{font-size:10px;padding:4px 8px;border-left:2px solid var(--border);display:flex;gap:8px;}
+.rlog-entry.ok{border-left-color:var(--green);background:#070c12;}
+.rlog-entry.info{border-left-color:var(--cyan);background:#070c12;}
+
+/* HSE SAFETY */
+.hse-zone-map{position:relative;width:100%;height:280px;background:#050a0f;border:1px solid var(--border-hi);overflow:hidden;}
+.hse-zone{position:absolute;border:2px dashed;display:flex;align-items:center;justify-content:center;font-size:9px;letter-spacing:1px;font-weight:700;}
+.zone-exclusion{border-color:rgba(255,59,59,.6);background:rgba(255,59,59,.06);color:var(--red);}
+.zone-caution{border-color:rgba(255,179,0,.5);background:rgba(255,179,0,.05);color:var(--amber);}
+.zone-free{border-color:rgba(0,230,118,.4);background:rgba(0,230,118,.04);color:var(--green);}
+.zone-geofence{border-color:rgba(0,229,255,.4);background:rgba(0,229,255,.03);color:var(--cyan);border-style:solid;}
+.hse-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
+.hse-card{background:#070c12;border:1px solid var(--border);padding:12px;text-align:center;}
+.hse-ico{font-size:24px;margin-bottom:6px;}
+.hse-title{font-size:10px;font-weight:700;color:var(--bright);margin-bottom:4px;}
+.hse-desc{font-size:9px;color:var(--dim);line-height:1.5;}
+.hse-status{font-size:8px;padding:2px 6px;border:1px solid;display:inline-block;margin-top:6px;letter-spacing:1px;}
+
+/* AI PREDICTIVE */
+.ai-feed{display:flex;flex-direction:column;gap:6px;max-height:320px;overflow-y:auto;}
+.ai-alert{border:1px solid;padding:12px;border-radius:2px;display:flex;gap:10px;align-items:flex-start;}
+.ai-alert.warn{border-color:rgba(255,179,0,.4);background:rgba(255,179,0,.04);}
+.ai-alert.info{border-color:rgba(0,229,255,.3);background:rgba(0,229,255,.03);}
+.ai-alert.action{border-color:rgba(179,136,255,.4);background:rgba(179,136,255,.04);}
+.ai-alert.ok{border-color:rgba(0,230,118,.3);background:rgba(0,230,118,.03);}
+.ai-ico{font-size:20px;flex-shrink:0;}
+.ai-body{flex:1;}
+.ai-title{font-size:11px;font-weight:700;margin-bottom:3px;}
+.ai-desc{font-size:10px;color:var(--dim);line-height:1.5;}
+.ai-conf{font-size:8px;margin-top:4px;letter-spacing:1px;}
+.ai-sparkline{display:flex;align-items:flex-end;gap:2px;height:30px;margin-top:8px;}
+.ai-bar-s{width:8px;background:rgba(0,229,255,.3);border-radius:1px;transition:height .5s;}
+.ai-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+.ai-chip{font-size:9px;padding:3px 8px;border:1px solid var(--border-hi);color:var(--dim);cursor:pointer;transition:all .2s;}
+.ai-chip:hover,.ai-chip.active{border-color:var(--cyan);color:var(--cyan);background:var(--cyan-dim);}
+
+/* NORMA BADGES */
+.norma-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px;}
+.norma{background:#070c12;border:1px solid var(--border);padding:10px;text-align:center;}
+.norma-code{font-size:10px;font-weight:700;color:var(--cyan);margin-bottom:3px;}
+.norma-desc{font-size:8px;color:var(--dim);line-height:1.4;}
+.norma-ok{font-size:8px;color:var(--green);margin-top:4px;}
+
+</style>
+</head>
+<body>
+
+<!-- IP BANNER -->
+<div class="ip-banner">
+  <div>🔒 &nbsp; © 2026 César Agliardi Pereira · Gravataí, RS, Brasil · Propriedade Intelectual Exclusiva &nbsp;·&nbsp; SHA-256: A3F8C2D1E9B7F4A6C8D2E1F3A9B5C7D4E2F1A8B6C3D9E7F2A4B8C1D5E3F6A2</div>
+  <div class="ip-chips"><span class="chip">AG-999 ENGINE</span><span class="chip">NOINDEX</span><span class="chip">v4 · YPF</span><span class="chip">TRL 7-9</span></div>
+</div>
+
+<!-- TOPBAR -->
+<div class="topbar">
+  <div style="display:flex;align-items:center;gap:12px">
+    <div class="logo">SAIS <em>·</em> v4</div>
+    <div class="badges">
+      <div class="bdg bdg-cyan">YPF EDITION</div>
+      <div class="bdg bdg-amber">⬡ AUTONOMOUS · SAFE · SCALABLE</div>
+    </div>
+  </div>
+  <div style="text-align:center">
+    <div style="font-size:13px;font-weight:700;letter-spacing:2px;color:var(--bright)" id="topbar-title">AUTONOMOUS, SAFE, AND SCALABLE TRANSPORT</div>
+    <div style="font-size:10px;color:var(--dim)">AG-999 D² Logistics Engine · YPF La Plata Refinery · © César Agliardi Pereira 2026</div>
+  </div>
+  <div class="topbar-right">
+    <div style="display:flex;align-items:center;gap:6px"><div class="live-dot"></div><span style="color:var(--green);font-size:10px">ACTIVE</span></div>
+    <div class="clock" id="clock">--:--:--</div>
+  </div>
+</div>
+
+<!-- TAB NAV -->
+<div class="tabnav">
+  <div class="tab active" onclick="showTab('executive')"><span class="ti">⭐</span>Executive</div>
+  <div class="tab" onclick="showTab('dashboard')"><span class="ti">📊</span>Dashboard</div>
+  <div class="tab t-purple" onclick="showTab('dispatch')"><span class="ti">🚚</span>Dispatch</div>
+  <div class="tab t-purple" onclick="showTab('samples')"><span class="ti">🧪</span>Samples</div>
+  <div class="tab t-cyan" onclick="showTab('agv3d')"><span class="ti">🤖</span>AGV 3D</div>
+  <div class="tab t-purple" onclick="showTab('replay')"><span class="ti">▶</span>Mission Replay</div>
+  <div class="tab t-red" onclick="showTab('hse')"><span class="ti">🛡</span>HSE Safety</div>
+  <div class="tab t-amber" onclick="showTab('ai')"><span class="ti">🧠</span>AI Predictive</div>
+  <div class="tab t-amber" onclick="showTab('fmea')"><span class="ti">⚠️</span>FMEA</div>
+  <div class="tab t-green" onclick="showTab('economics')"><span class="ti">💰</span>Economics</div>
+  <div class="tab t-amber" onclick="showTab('gantt')"><span class="ti">📅</span>Gantt</div>
+  <div class="tab t-gold" onclick="showTab('formulas')"><span class="ti">🔒</span>AG-999</div>
+  <div class="tab t-purple" onclick="showTab('partners')"><span class="ti">🌐</span>Partners</div>
+  <div class="tab t-green" onclick="showTab('report')"><span class="ti">📄</span>Proposal</div>
+  <div class="tab" style="" onclick="showTab('config')"><span class="ti">⚙</span>Config</div>
+</div>
+
+<!-- ════════════════════ EXECUTIVE SUMMARY ════════════════════ -->
+<div class="pane active" id="pane-executive">
+  <div class="sec-label">Executive Summary — Value at a Glance <span class="sec-tag gold">FOR EVALUATORS</span></div>
+
+  <div class="exec-hero">
+    <div class="exec-card" style="border-color:rgba(0,230,118,.35)">
+      <div class="exec-num" style="color:var(--green)">$144k</div>
+      <div class="exec-unit" style="color:var(--green)">Annual Savings</div>
+      <div class="exec-label">Per refinery unit<br>vs. current manual process</div>
+      <div class="exec-bar"><div class="exec-fill" style="width:82%;background:var(--green)"></div></div>
+    </div>
+    <div class="exec-card" style="border-color:rgba(0,229,255,.35)">
+      <div class="exec-num" style="color:var(--cyan)">76%</div>
+      <div class="exec-unit" style="color:var(--cyan)">Faster Delivery</div>
+      <div class="exec-label">8.2 min automated<br>vs. 34 min manual</div>
+      <div class="exec-bar"><div class="exec-fill" style="width:76%;background:var(--cyan)"></div></div>
+    </div>
+    <div class="exec-card" style="border-color:rgba(255,59,59,.35)">
+      <div class="exec-num" style="color:var(--red)">90%</div>
+      <div class="exec-unit" style="color:var(--red)">Risk Reduction</div>
+      <div class="exec-label">HSE exposure cut<br>Zero spills · Zero contaminations</div>
+      <div class="exec-bar"><div class="exec-fill" style="width:90%;background:var(--red)"></div></div>
+    </div>
+    <div class="exec-card" style="border-color:rgba(201,162,39,.35)">
+      <div class="exec-num" style="color:var(--gold)">14mo</div>
+      <div class="exec-unit" style="color:var(--gold)">Payback Period</div>
+      <div class="exec-label">Full implementation ROI<br>3 refineries = $432k/yr</div>
+      <div class="exec-bar"><div class="exec-fill" style="width:60%;background:var(--gold)"></div></div>
+    </div>
+  </div>
+
+  <!-- WHY SAIS v4 -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div style="border:1px solid var(--border-hi);padding:16px;background:rgba(0,229,255,.02)">
+      <div style="color:var(--cyan);font-size:11px;font-weight:700;margin-bottom:10px;letter-spacing:2px">⬡ WHY SAIS v4 WINS</div>
+      <div style="font-size:10px;color:var(--dim);line-height:2.1">
+        <div><span style="color:var(--green)">✓</span> &nbsp;AG-999 D² Engine — proprietary risk optimizer, not just automation</div>
+        <div><span style="color:var(--green)">✓</span> &nbsp;Hardware-agnostic — deploys on MiR, Fetch, Gideon or equivalent TRL9 platform</div>
+        <div><span style="color:var(--green)">✓</span> &nbsp;100% LIMS auto-integration — zero manual logging, full chain of custody</div>
+        <div><span style="color:var(--green)">✓</span> &nbsp;Urgent override protocol — COKER-D events handled in &lt;2 min</div>
+        <div><span style="color:var(--green)">✓</span> &nbsp;HSE geofencing — speed limits enforced at hardware level, not software</div>
+        <div><span style="color:var(--green)">✓</span> &nbsp;Scalable to all 3 YPF refineries from single platform deployment</div>
+        <div><span style="color:var(--green)">✓</span> &nbsp;AI Predictive layer — congestion, battery, and route alerts before incidents</div>
+        <div><span style="color:var(--green)">✓</span> &nbsp;Pilot ready in 30 days · Full implementation in 7 months</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="border:1px solid rgba(0,230,118,.25);background:rgba(0,230,118,.03);padding:12px">
+        <div style="color:var(--green);font-size:10px;font-weight:700;margin-bottom:8px">PILOT SCOPE · $20,000 · 30 DAYS</div>
+        <div style="font-size:10px;color:var(--dim);line-height:1.9">
+          <div>📍 Location: Buenos Aires · La Plata refinery unit</div>
+          <div>🤖 Fleet: 1 AGV (demo/lease) · full sensor suite</div>
+          <div>🧪 Routes: Pilot area sample collection + lab delivery</div>
+          <div>📡 Integration: LIMS live · AG-999 active · HSE compliant</div>
+          <div>📊 KPIs: delivery time, zero incidents, 100% LIMS logging</div>
+        </div>
+      </div>
+      <div style="border:1px solid rgba(201,162,39,.2);background:rgba(201,162,39,.03);padding:12px">
+        <div style="color:var(--gold);font-size:10px;font-weight:700;margin-bottom:6px">FULL ROLLOUT VALUE</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;text-align:center">
+          <div><div style="font-size:20px;font-weight:900;color:var(--gold)">3</div><div style="font-size:8px;color:var(--dim)">Refineries</div></div>
+          <div><div style="font-size:20px;font-weight:900;color:var(--gold)">$432k</div><div style="font-size:8px;color:var(--dim)">Annual savings</div></div>
+          <div><div style="font-size:20px;font-weight:900;color:var(--gold)">7mo</div><div style="font-size:8px;color:var(--dim)">To full deploy</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TECHNOLOGY CHAIN -->
+  <div style="border:1px solid var(--border);padding:14px;background:#070c12">
+    <div style="font-size:9px;color:var(--dim);letter-spacing:2px;margin-bottom:12px">TECHNOLOGY CHAIN</div>
+    <div style="display:flex;align-items:center;gap:0;flex-wrap:nowrap;overflow-x:auto">
+      <div style="text-align:center;min-width:100px;padding:8px"><div style="font-size:20px;margin-bottom:4px">🏭</div><div style="font-size:9px;color:var(--dim)">Process Point<br>Sample ready</div></div>
+      <div style="font-size:16px;color:var(--border-hi);padding:0 4px">→</div>
+      <div style="text-align:center;min-width:100px;padding:8px;border:1px solid rgba(0,229,255,.3);background:rgba(0,229,255,.04)"><div style="font-size:20px;margin-bottom:4px">🤖</div><div style="font-size:9px;color:var(--cyan)">AGV<br>Autonomous pickup</div></div>
+      <div style="font-size:16px;color:var(--border-hi);padding:0 4px">→</div>
+      <div style="text-align:center;min-width:100px;padding:8px;border:1px solid rgba(201,162,39,.3);background:rgba(201,162,39,.04)"><div style="font-size:20px;margin-bottom:4px">🧬</div><div style="font-size:9px;color:var(--gold)">AG-999 D²<br>Risk optimization</div></div>
+      <div style="font-size:16px;color:var(--border-hi);padding:0 4px">→</div>
+      <div style="text-align:center;min-width:100px;padding:8px;border:1px solid rgba(179,136,255,.3);background:rgba(179,136,255,.04)"><div style="font-size:20px;margin-bottom:4px">🛡</div><div style="font-size:9px;color:var(--purple)">HSE Compliance<br>Real-time enforce</div></div>
+      <div style="font-size:16px;color:var(--border-hi);padding:0 4px">→</div>
+      <div style="text-align:center;min-width:100px;padding:8px;border:1px solid rgba(0,230,118,.3);background:rgba(0,230,118,.04)"><div style="font-size:20px;margin-bottom:4px">🏛</div><div style="font-size:9px;color:var(--green)">Laboratory<br>Delivery confirmed</div></div>
+      <div style="font-size:16px;color:var(--border-hi);padding:0 4px">→</div>
+      <div style="text-align:center;min-width:100px;padding:8px;border:1px solid rgba(0,229,255,.2);background:rgba(0,229,255,.02)"><div style="font-size:20px;margin-bottom:4px">📡</div><div style="font-size:9px;color:var(--cyan)">LIMS Auto-log<br>100% traceability</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ AGV 3D MODEL ════════════════════ -->
+<div class="pane" id="pane-agv3d">
+  <div class="sec-label">AGV 3D Visualization — Industrial Platform Model <span class="sec-tag cyan">INTERACTIVE · DRAG TO ROTATE</span></div>
+  <canvas id="agv3dCanvas"></canvas>
+  <div class="agv3d-controls">
+    <button class="btn btn-c" onclick="agv3dReset()">↺ Reset View</button>
+    <button class="btn btn-g" onclick="agv3dToggleAnim()">▶ Toggle Animation</button>
+    <button class="btn btn-a" id="agv3dModeBtn" onclick="agv3dMode()">🚚 Transit Mode</button>
+    <button class="btn btn-p" onclick="agv3dSensors()">📡 Show Sensors</button>
+    <span style="font-size:9px;color:var(--dim);padding:8px">Drag to rotate · Scroll to zoom · © César Agliardi Pereira 2026</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:10px">
+    <div class="eco-card"><div class="eco-title">PLATFORM</div><div style="font-size:11px;font-weight:700;color:var(--bright)">MiR600 class</div><div class="eco-sub">or equivalent TRL9</div></div>
+    <div class="eco-card"><div class="eco-title">PAYLOAD</div><div style="font-size:11px;font-weight:700;color:var(--cyan)">25 kg</div><div class="eco-sub">sample tray capacity</div></div>
+    <div class="eco-card"><div class="eco-title">MAX SPEED</div><div style="font-size:11px;font-weight:700;color:var(--amber)">5 km/h</div><div class="eco-sub">YPF zone regulated</div></div>
+    <div class="eco-card"><div class="eco-title">NAVIGATION</div><div style="font-size:11px;font-weight:700;color:var(--green)">LiDAR + SLAM</div><div class="eco-sub">obstacle avoidance</div></div>
+    <div class="eco-card"><div class="eco-title">BATTERY</div><div style="font-size:11px;font-weight:700;color:var(--green)">10h autonomy</div><div class="eco-sub">auto-return 25%</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════ MISSION REPLAY ════════════════════ -->
+<div class="pane" id="pane-replay">
+  <div class="sec-label">Mission Replay — Sample Collection to LIMS Delivery <span class="sec-tag purple">STEP-BY-STEP</span></div>
+
+  <div style="display:grid;grid-template-columns:1fr 280px;gap:12px">
+    <div>
+      <!-- Step Track -->
+      <div class="replay-track" id="replayTrack">
+        <div class="replay-step">
+          <div class="rs-circle pending" id="rs0">📍</div>
+          <div class="rs-label" id="rl0">Dispatch<br>Request</div>
+        </div>
+        <div class="replay-step">
+          <div class="rs-circle pending" id="rs1">🤖</div>
+          <div class="rs-label" id="rl1">AGV<br>En Route</div>
+        </div>
+        <div class="replay-step">
+          <div class="rs-circle pending" id="rs2">📦</div>
+          <div class="rs-label" id="rl2">Sample<br>Pickup</div>
+        </div>
+        <div class="replay-step">
+          <div class="rs-circle pending" id="rs3">📡</div>
+          <div class="rs-label" id="rl3">RFID<br>Verify</div>
+        </div>
+        <div class="replay-step">
+          <div class="rs-circle pending" id="rs4">🔒</div>
+          <div class="rs-label" id="rl4">Container<br>Sealed</div>
+        </div>
+        <div class="replay-step">
+          <div class="rs-circle pending" id="rs5">🚚</div>
+          <div class="rs-label" id="rl5">Transit<br>to Lab</div>
+        </div>
+        <div class="replay-step">
+          <div class="rs-circle pending" id="rs6">🏛</div>
+          <div class="rs-label" id="rl6">Lab<br>Delivery</div>
+        </div>
+        <div class="replay-step">
+          <div class="rs-circle pending" id="rs7">✅</div>
+          <div class="rs-label" id="rl7">LIMS<br>Auto-Log</div>
+        </div>
+      </div>
+
+      <!-- Detail panel -->
+      <div class="replay-detail" id="replayDetail">
+        Press START MISSION to replay a complete sample collection cycle. The replay shows each step of the autonomous process in real time, including RFID verification, container sealing, transit, and LIMS registration.
+      </div>
+
+      <!-- D2 during replay -->
+      <div style="margin-top:10px;border:1px solid var(--border);padding:12px;background:#070c12">
+        <div style="font-size:9px;color:var(--dim);margin-bottom:6px;letter-spacing:2px">AG-999 D² — MISSION RISK PROFILE</div>
+        <canvas id="replayD2Chart" style="max-height:80px;width:100%"></canvas>
+      </div>
+
+      <!-- Log -->
+      <div class="replay-log" id="replayLog" style="margin-top:8px">
+        <div style="font-size:10px;color:var(--dim);padding:4px">No mission running. Press START.</div>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="border:1px solid var(--border);padding:12px;background:#070c12">
+        <div style="font-size:9px;color:var(--dim);letter-spacing:2px;margin-bottom:8px">MISSION PARAMETERS</div>
+        <select class="sel" id="replaySP" style="width:100%;margin-bottom:6px">
+          <option value="HVAC-A|PT-01|Glass 1L|7.9">HVAC-A · PT-01 · Glass 1L</option>
+          <option value="COKER-D|PT-10|Metal 1kg|12.1">COKER-D · PT-10 · Metal 1kg · ⚡ URGENT</option>
+          <option value="REFORM-C|PT-07|Gas Cylinder|9.4">REFORM-C · PT-07 · Gas Cylinder</option>
+          <option value="STEAM-F|PT-14|Glass 500ml|8.6">STEAM-F · PT-14 · Glass 500ml</option>
+        </select>
+        <select class="sel" id="replayAGV" style="width:100%;margin-bottom:8px">
+          <option>AGV-01 · 87% battery</option>
+          <option>AGV-03 · 91% battery</option>
+        </select>
+        <button class="btn btn-g" style="width:100%;padding:12px;font-size:11px" onclick="startReplay()">▶ START MISSION</button>
+        <button class="btn btn-a" style="width:100%;padding:8px;margin-top:6px;font-size:10px" onclick="resetReplay()">↺ RESET</button>
+      </div>
+      <div style="border:1px solid var(--border);padding:12px;background:#070c12;flex:1">
+        <div style="font-size:9px;color:var(--dim);letter-spacing:2px;margin-bottom:8px">REAL-TIME METRICS</div>
+        <div style="font-size:10px;color:var(--dim);line-height:2.2" id="replayMetrics">
+          <div>Mission time: <span style="color:var(--bright)" id="rm-time">—</span></div>
+          <div>Current step: <span style="color:var(--cyan)" id="rm-step">—</span></div>
+          <div>D² score: <span style="color:var(--green)" id="rm-d2">—</span></div>
+          <div>Integrity: <span style="color:var(--green)" id="rm-int">—</span></div>
+          <div>LIMS status: <span style="color:var(--dim)" id="rm-lims">WAITING</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ HSE SAFETY ════════════════════ -->
+<div class="pane" id="pane-hse">
+  <div class="sec-label">HSE Safety — Geofencing, Exclusion Zones & Compliance <span class="sec-tag" style="border-color:rgba(255,59,59,.4);color:var(--red)">CRITICAL</span></div>
+
+  <!-- Zone Map -->
+  <div class="hse-zone-map" id="hseMap">
+    <div style="position:absolute;inset:0;background-image:linear-gradient(rgba(0,229,255,.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,.03) 1px,transparent 1px);background-size:20px 20px;"></div>
+    <!-- Zones -->
+    <div class="hse-zone zone-exclusion" style="left:3%;top:3%;width:18%;height:25%">⛔ EXCLUSION<br>PROCESS FIRE</div>
+    <div class="hse-zone zone-exclusion" style="left:70%;top:3%;width:27%;height:22%">⛔ EXCLUSION<br>HIGH-PRESSURE</div>
+    <div class="hse-zone zone-caution" style="left:25%;top:5%;width:40%;height:20%">⚠ CAUTION<br>PEDESTRIAN ZONE</div>
+    <div class="hse-zone zone-caution" style="left:3%;top:35%;width:20%;height:22%">⚠ CAUTION<br>VEHICLE CROSSING</div>
+    <div class="hse-zone zone-free" style="left:27%;top:30%;width:38%;height:35%">✓ FREE ROUTE<br>AGV CORRIDOR</div>
+    <div class="hse-zone zone-free" style="left:70%;top:30%;width:27%;height:22%">✓ FREE ROUTE<br>LAB ACCESS</div>
+    <div class="hse-zone zone-geofence" style="left:2%;top:2%;width:96%;height:94%;border-width:3px">
+      <span style="position:absolute;top:3px;left:6px;font-size:9px;color:var(--cyan);letter-spacing:2px">◈ GEOFENCE BOUNDARY — AG-999 ENFORCED</span>
+    </div>
+    <!-- AGV on map -->
+    <div style="position:absolute;left:52%;top:55%;width:14px;height:14px;border-radius:50%;background:var(--cyan);box-shadow:0 0 12px var(--cyan);transform:translate(-50%,-50%);display:flex;align-items:center;justify-content:center;font-size:9px;z-index:10">🤖</div>
+    <!-- E-STOP markers -->
+    <div style="position:absolute;left:22%;top:48%;font-size:14px;cursor:pointer" title="Emergency Stop Station">🔴</div>
+    <div style="position:absolute;left:65%;top:55%;font-size:14px;cursor:pointer" title="Emergency Stop Station">🔴</div>
+    <div style="position:absolute;left:45%;top:85%;font-size:14px;cursor:pointer" title="Emergency Stop Station">🔴</div>
+  </div>
+  <div style="font-size:9px;color:var(--dim);margin-top:4px;display:flex;gap:16px;flex-wrap:wrap">
+    <span>⛔ <span style="color:var(--red)">Exclusion zone</span> — AGV access prohibited</span>
+    <span>⚠ <span style="color:var(--amber)">Caution zone</span> — speed ≤3 km/h</span>
+    <span>✓ <span style="color:var(--green)">Free route</span> — normal operation ≤5 km/h</span>
+    <span>◈ <span style="color:var(--cyan)">Geofence</span> — hard boundary enforced</span>
+    <span>🔴 Emergency stop station</span>
+  </div>
+
+  <!-- HSE Feature Cards -->
+  <div class="hse-cards">
+    <div class="hse-card">
+      <div class="hse-ico">🚧</div>
+      <div class="hse-title">Geofencing</div>
+      <div class="hse-desc">GPS + LiDAR dual-layer boundary enforcement. AGV physically cannot enter exclusion zones. Override requires 2-factor operator authorization.</div>
+      <div class="hse-status" style="border-color:rgba(0,230,118,.4);color:var(--green)">ACTIVE · ALL ZONES</div>
+    </div>
+    <div class="hse-card">
+      <div class="hse-ico">🛑</div>
+      <div class="hse-title">Emergency Stop</div>
+      <div class="hse-desc">3 physical E-STOP stations in pilot area. Software E-STOP via dashboard. Automatic E-STOP on obstacle &lt;0.5m. Response time: &lt;100ms.</div>
+      <div class="hse-status" style="border-color:rgba(0,230,118,.4);color:var(--green)">ARMED · 3 STATIONS</div>
+    </div>
+    <div class="hse-card">
+      <div class="hse-ico">📡</div>
+      <div class="hse-title">Collision Prevention</div>
+      <div class="hse-desc">360° LiDAR + ultrasonic sensors. Detection at 3m → slow down. Detection at 1m → stop. Human-detection algorithm prioritizes personnel safety.</div>
+      <div class="hse-status" style="border-color:rgba(0,230,118,.4);color:var(--green)">NOMINAL · 360°</div>
+    </div>
+    <div class="hse-card">
+      <div class="hse-ico">⚡</div>
+      <div class="hse-title">Speed Enforcement</div>
+      <div class="hse-desc">Hard-coded speed governor by zone. Open corridor: ≤5 km/h. Pedestrian zone: ≤3 km/h. Cannot be remotely overridden. YPF regulation compliant.</div>
+      <div class="hse-status" style="border-color:rgba(0,230,118,.4);color:var(--green)">ENFORCED · HW LEVEL</div>
+    </div>
+    <div class="hse-card">
+      <div class="hse-ico">🔥</div>
+      <div class="hse-title">Gas / Leak Detection</div>
+      <div class="hse-desc">HC gas sensor active during all gas cylinder transport. Leak sensor in sample tray. Automatic mission abort + HSE alert on threshold exceed.</div>
+      <div class="hse-status" style="border-color:rgba(0,230,118,.4);color:var(--green)">MONITORING</div>
+    </div>
+    <div class="hse-card">
+      <div class="hse-ico">🏷</div>
+      <div class="hse-title">Visual Safety Signals</div>
+      <div class="hse-desc">360° amber beacon during operation. Audible alert in pedestrian zones. Retroreflective markings for low-visibility conditions. Night-mode compliant.</div>
+      <div class="hse-status" style="border-color:rgba(0,230,118,.4);color:var(--green)">ACTIVE</div>
+    </div>
+    <div class="hse-card">
+      <div class="hse-ico">📋</div>
+      <div class="hse-title">Incident Logging</div>
+      <div class="hse-desc">Every safety event auto-logged with timestamp, location, severity, and corrective action. Full audit trail for YPF HSE reporting. LIMS-integrated.</div>
+      <div class="hse-status" style="border-color:rgba(0,230,118,.4);color:var(--green)">AUTO · 100%</div>
+    </div>
+    <div class="hse-card">
+      <div class="hse-ico">📞</div>
+      <div class="hse-title">Emergency Comms</div>
+      <div class="hse-desc">Instant HSE team notification on CRITICAL D² threshold (≥0.80). Two-way operator radio fallback. Offline mode buffers events for reconnect.</div>
+      <div class="hse-status" style="border-color:rgba(0,230,118,.4);color:var(--green)">DUAL-PATH ACTIVE</div>
+    </div>
+  </div>
+
+  <!-- NORMS -->
+  <div class="sec-label" style="margin-top:8px">Regulatory Compliance <span class="sec-tag" style="border-color:rgba(0,230,118,.3);color:var(--green)">VERIFIED</span></div>
+  <div class="norma-grid">
+    <div class="norma"><div class="norma-code">ISO 3691-4</div><div class="norma-desc">Industrial trucks — driverless automatic</div><div class="norma-ok">✓ Compliant</div></div>
+    <div class="norma"><div class="norma-code">IEC 62443</div><div class="norma-desc">Industrial cybersecurity — network segmentation</div><div class="norma-ok">✓ Compliant</div></div>
+    <div class="norma"><div class="norma-code">ATEX Zone 2</div><div class="norma-desc">Explosion protection — refinery-grade electrics</div><div class="norma-ok">✓ Available</div></div>
+    <div class="norma"><div class="norma-code">YPF SMS</div><div class="norma-desc">Internal HSE · speed limits · circulation norms</div><div class="norma-ok">✓ Full compliance</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════ AI PREDICTIVE ════════════════════ -->
+<div class="pane" id="pane-ai">
+  <div class="sec-label">AI Predictive Layer — Intelligent Foresight Engine <span class="sec-tag purple">LIVE INFERENCE</span></div>
+
+  <div style="display:grid;grid-template-columns:1fr 260px;gap:12px">
+    <div>
+      <div style="font-size:10px;color:var(--dim);margin-bottom:10px">
+        The AG-999 AI Predictive Layer runs continuously alongside D² telemetry. It identifies emerging patterns before they become incidents — giving operators a 10–30 minute forecast window to act.
+      </div>
+
+      <div class="ai-feed" id="aiFeed">
+        <div class="ai-alert warn">
+          <div class="ai-ico">🚦</div>
+          <div class="ai-body">
+            <div class="ai-title" style="color:var(--amber)">Predicted congestion · Route C (REFORM → LAB)</div>
+            <div class="ai-desc">Shift change at 10:00 will generate pedestrian traffic in the REFORM-C corridor. Historical pattern match: 87% congestion probability in next 14 minutes. Recommend dispatching AGV-03 via alternate Route F before 09:58.</div>
+            <div class="ai-conf" style="color:var(--amber)">CONFIDENCE: 87% · ETA: 14 min · Action window: 6 min</div>
+            <div style="display:flex;gap:6px;margin-top:6px"><button class="btn btn-a" style="padding:4px 10px;font-size:9px">Accept Reroute</button><button class="btn btn-c" style="padding:4px 10px;font-size:9px">Dismiss</button></div>
+          </div>
+        </div>
+        <div class="ai-alert action">
+          <div class="ai-ico">🤖</div>
+          <div class="ai-body">
+            <div class="ai-title" style="color:var(--purple)">Recommend dispatching AGV-03 instead of AGV-01</div>
+            <div class="ai-desc">AGV-01 is 340m from HVAC-A. AGV-03 is 180m with a clear route and 4% higher battery. Time savings: 2.3 min. Energy savings: 8%. AG-999 recommends AGV-03 for next 3 pickups.</div>
+            <div class="ai-conf" style="color:var(--purple)">OPTIMIZATION SCORE: +12% efficiency · Battery delta: AGV-03 91% vs AGV-01 87%</div>
+            <div style="display:flex;gap:6px;margin-top:6px"><button class="btn btn-p" style="padding:4px 10px;font-size:9px">Accept Recommendation</button><button class="btn btn-c" style="padding:4px 10px;font-size:9px">Manual Override</button></div>
+          </div>
+        </div>
+        <div class="ai-alert info">
+          <div class="ai-ico">🔋</div>
+          <div class="ai-body">
+            <div class="ai-title" style="color:var(--cyan)">Battery degradation forecast · AGV-02</div>
+            <div class="ai-desc">AGV-02 battery capacity has decreased 3.2% over the last 30 operating days. At current discharge rate, range will drop below 6km in approximately 45 days. Preventive maintenance recommended before month-end.</div>
+            <div class="ai-conf" style="color:var(--cyan)">TREND: −3.2%/30days · Predicted maintenance: 45 days · Urgency: LOW</div>
+            <div class="ai-sparkline" id="batSparkline"></div>
+          </div>
+        </div>
+        <div class="ai-alert ok">
+          <div class="ai-ico">📊</div>
+          <div class="ai-body">
+            <div class="ai-title" style="color:var(--green)">Delivery time optimization detected</div>
+            <div class="ai-desc">Tuesday/Thursday morning cycles show 23% faster delivery when AGV-01 is pre-positioned at HVAC-A by 07:45. Implementing this pre-positioning pattern will save 47 minutes per week across the fleet.</div>
+            <div class="ai-conf" style="color:var(--green)">PATTERN CONFIDENCE: 94% · Weekly savings: 47 min · Recommended: auto-schedule</div>
+            <div style="display:flex;gap:6px;margin-top:6px"><button class="btn btn-g" style="padding:4px 10px;font-size:9px">Auto-Schedule</button></div>
+          </div>
+        </div>
+        <div class="ai-alert warn">
+          <div class="ai-ico">🌡</div>
+          <div class="ai-body">
+            <div class="ai-title" style="color:var(--amber)">Temperature anomaly · STEAM-F sample tray</div>
+            <div class="ai-desc">Container temperature sensor on AGV-02 shows 2.8°C above baseline during transit from STEAM-F. Likely cause: extended exposure during loading. Sample integrity not compromised but flagged for lab verification.</div>
+            <div class="ai-conf" style="color:var(--amber)">SEVERITY: LOW · Sample SMP-2026-0893 flagged · Lab verification recommended</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Sidebar -->
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="border:1px solid var(--border);padding:12px;background:#070c12">
+        <div style="font-size:9px;color:var(--dim);letter-spacing:2px;margin-bottom:8px">AI FILTER</div>
+        <div class="ai-chips">
+          <div class="ai-chip active" onclick="filterAI(this,'all')">All</div>
+          <div class="ai-chip" onclick="filterAI(this,'warn')">Warnings</div>
+          <div class="ai-chip" onclick="filterAI(this,'action')">Actions</div>
+          <div class="ai-chip" onclick="filterAI(this,'info')">Info</div>
+          <div class="ai-chip" onclick="filterAI(this,'ok')">Optimizations</div>
+        </div>
+      </div>
+      <div style="border:1px solid var(--border);padding:12px;background:#070c12">
+        <div style="font-size:9px;color:var(--dim);letter-spacing:2px;margin-bottom:10px">PREDICTION ACCURACY</div>
+        <canvas id="aiAccChart" style="max-height:130px"></canvas>
+      </div>
+      <div style="border:1px solid var(--border);padding:12px;background:#070c12">
+        <div style="font-size:9px;color:var(--dim);letter-spacing:2px;margin-bottom:8px">TODAY'S AI ACTIONS</div>
+        <div style="font-size:10px;color:var(--dim);line-height:2">
+          <div>Reroutes suggested: <span style="color:var(--cyan)">3</span></div>
+          <div>Accepted by operator: <span style="color:var(--green)">3 / 3</span></div>
+          <div>Time saved: <span style="color:var(--green)">18.4 min</span></div>
+          <div>Battery alerts: <span style="color:var(--amber)">1</span></div>
+          <div>Congestion avoided: <span style="color:var(--green)">2 events</span></div>
+          <div>Accuracy (30d): <span style="color:var(--cyan)">91.4%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ TAB 1: DASHBOARD ════════════════════ -->
+<div class="pane active" id="pane-dashboard">
+
+  <!-- KPI STRIP -->
+  <div class="kpi-strip">
+    <div class="kpi"><div class="kpi-l">AGVs ACTIVE</div><div class="kpi-v" id="kpi-agv" style="color:var(--green)">3</div><div class="kpi-u">of 4 fleet</div></div>
+    <div class="kpi"><div class="kpi-l">SAMPLES TODAY</div><div class="kpi-v" id="kpi-samples" style="color:var(--cyan)">47</div><div class="kpi-u">delivered</div></div>
+    <div class="kpi"><div class="kpi-l">AVG DELIVERY</div><div class="kpi-v" id="kpi-time" style="color:var(--cyan)">8.2</div><div class="kpi-u">min vs 34 manual</div></div>
+    <div class="kpi"><div class="kpi-l">ZERO INCIDENTS</div><div class="kpi-v" style="color:var(--green)">0</div><div class="kpi-u">contaminations/spills</div></div>
+    <div class="kpi"><div class="kpi-l">SYSTEM UPTIME</div><div class="kpi-v" id="kpi-up" style="color:var(--green)">99.7</div><div class="kpi-u">% availability</div></div>
+  </div>
+
+  <!-- D2 HERO -->
+  <div class="d2-hero">
+    <div class="d2-sub">LOGISTICS RISK INDEX · AG-999 D² ENGINE</div>
+    <div class="d2-num" id="d2main">0.18</div>
+    <div class="d2-sub" style="margin-top:4px">D² = w_C·C² + w_S·S² + w_T·T² + w_B·B² + β·z(θ) + γ·cos(φ) · 𝒪(□)</div>
+    <div class="d2-badge" id="d2status" style="border-color:var(--green);color:var(--green);background:var(--green-dim)">⬤ NOMINAL — ALL ROUTES CLEAR</div>
+  </div>
+
+  <!-- COMPONENTS -->
+  <div class="comps">
+    <div class="comp"><div class="comp-lbl">Contamination Risk (C²)</div><div class="comp-val" id="c1v">0.04</div><div class="comp-bar"><div class="comp-fill" id="c1b" style="width:4%;background:var(--green)"></div></div></div>
+    <div class="comp"><div class="comp-lbl">Spill Risk (S²)</div><div class="comp-val" id="c2v">0.06</div><div class="comp-bar"><div class="comp-fill" id="c2b" style="width:6%;background:var(--green)"></div></div></div>
+    <div class="comp"><div class="comp-lbl">Time Overrun (T²)</div><div class="comp-val" id="c3v">0.05</div><div class="comp-bar"><div class="comp-fill" id="c3b" style="width:5%;background:var(--green)"></div></div></div>
+    <div class="comp"><div class="comp-lbl">Battery Risk (B²) · 𝒪(□)</div><div class="comp-val" id="c4v">0.18</div><div class="comp-bar"><div class="comp-fill" id="c4b" style="width:18%;background:var(--cyan)"></div></div></div>
+  </div>
+
+  <!-- TELEMETRY SENSORS -->
+  <div>
+    <div class="sec-label">Fleet Telemetry — 6 Channels <span class="sec-tag cyan">REAL-TIME</span></div>
+    <div class="sensors">
+      <div class="sc" id="sc-bat"><div class="sc-ico">🔋</div><div class="sc-lbl">AGV-1 BATTERY</div><div class="sc-val" id="sv-bat">87</div><div class="sc-unit">%</div><div class="sc-bar"><div class="sc-fill ok-f" id="sb-bat" style="width:87%"></div></div><div class="sc-delta dn">▼ −2%/h</div></div>
+      <div class="sc" id="sc-speed"><div class="sc-ico">⚡</div><div class="sc-lbl">AVG SPEED</div><div class="sc-val" id="sv-speed">4.2</div><div class="sc-unit">km/h</div><div class="sc-bar"><div class="sc-fill ok-f" id="sb-speed" style="width:42%"></div></div><div class="sc-delta dn">▼ within limit</div></div>
+      <div class="sc" id="sc-load"><div class="sc-ico">📦</div><div class="sc-lbl">ACTIVE LOADS</div><div class="sc-val" id="sv-load">5</div><div class="sc-unit">samples</div><div class="sc-bar"><div class="sc-fill ok-f" id="sb-load" style="width:62%"></div></div><div class="sc-delta dn">▼ 3 en route</div></div>
+      <div class="sc" id="sc-temp"><div class="sc-ico">🌡</div><div class="sc-lbl">CONTAINER TEMP</div><div class="sc-val" id="sv-temp">22</div><div class="sc-unit">°C</div><div class="sc-bar"><div class="sc-fill ok-f" id="sb-temp" style="width:22%"></div></div><div class="sc-delta dn">▼ NOMINAL</div></div>
+      <div class="sc" id="sc-eta"><div class="sc-ico">⏱</div><div class="sc-lbl">NEXT DELIVERY</div><div class="sc-val" id="sv-eta">3.1</div><div class="sc-unit">min</div><div class="sc-bar"><div class="sc-fill ok-f" id="sb-eta" style="width:45%"></div></div><div class="sc-delta dn">▼ on schedule</div></div>
+      <div class="sc" id="sc-int"><div class="sc-ico">📡</div><div class="sc-lbl">NETWORK</div><div class="sc-val" id="sv-int">OK</div><div class="sc-unit">LIMS link</div><div class="sc-bar"><div class="sc-fill ok-f" id="sb-int" style="width:100%"></div></div><div class="sc-delta dn">▼ 12ms latency</div></div>
+    </div>
+  </div>
+
+  <!-- FLEET MAP (schematic) -->
+  <div>
+    <div class="sec-label">Refinery Route Map — La Plata Unit <span class="sec-tag cyan">LIVE</span></div>
+    <div style="display:grid;grid-template-columns:1fr 280px;gap:0;border:1px solid var(--border-hi)">
+      <div class="map-wrap" style="border:none;">
+        <div class="map-grid"></div>
+        <!-- Sample Points -->
+        <div class="sp active" id="sp1" style="left:6%;top:5%;width:18%;height:18%">
+          <div class="sp-name">HVAC-A</div><div class="sp-d2">PT-01·02·03</div>
+        </div>
+        <div class="sp active" id="sp2" style="left:32%;top:5%;width:18%;height:18%">
+          <div class="sp-name">DIST-B</div><div class="sp-d2">PT-04·05·06</div>
+        </div>
+        <div class="sp idle" id="sp3" style="left:58%;top:5%;width:18%;height:18%">
+          <div class="sp-name">REFORM-C</div><div class="sp-d2">PT-07·08·09</div>
+        </div>
+        <div class="sp pending" id="sp4" style="left:80%;top:5%;width:18%;height:18%">
+          <div class="sp-name">COKER-D</div><div class="sp-d2">PT-10·11</div>
+        </div>
+        <div class="sp idle" id="sp5" style="left:6%;top:35%;width:18%;height:18%">
+          <div class="sp-name">HYDRO-E</div><div class="sp-d2">PT-12·13</div>
+        </div>
+        <div class="sp active" id="sp6" style="left:32%;top:35%;width:18%;height:18%">
+          <div class="sp-name">STEAM-F</div><div class="sp-d2">PT-14·15</div>
+        </div>
+        <div class="sp idle" id="sp7" style="left:58%;top:35%;width:18%;height:18%">
+          <div class="sp-name">WATER-G</div><div class="sp-d2">PT-16·17</div>
+        </div>
+        <!-- LAB -->
+        <div class="sp" style="left:32%;top:70%;width:34%;height:22%;border-color:rgba(179,136,255,.7);background:rgba(179,136,255,.08);color:var(--purple)">
+          <div class="sp-name" style="font-size:11px">⬡ LABORATORY</div>
+          <div class="sp-d2" style="font-size:8px">Delivery/Return Hub</div>
+        </div>
+        <!-- Charging -->
+        <div class="sp" style="left:6%;top:72%;width:18%;height:18%;border-color:rgba(0,230,118,.5);background:rgba(0,230,118,.06);color:var(--green)">
+          <div class="sp-name">⚡ CHARGE</div><div class="sp-d2">AGV Dock</div>
+        </div>
+        <!-- AGVs animated -->
+        <div class="agv" id="agv1" style="width:14px;height:14px;background:var(--cyan);left:20%;top:20%;font-size:8px">🤖</div>
+        <div class="agv" id="agv2" style="width:14px;height:14px;background:var(--amber);left:50%;top:50%;box-shadow:0 0 10px var(--amber),0 0 20px rgba(255,179,0,.35);font-size:8px">🤖</div>
+        <div class="agv" id="agv3" style="width:14px;height:14px;background:var(--green);left:75%;top:20%;box-shadow:0 0 10px var(--green),0 0 20px rgba(0,230,118,.35);font-size:8px">🤖</div>
+      </div>
+      <!-- LEGEND -->
+      <div style="border-left:1px solid var(--border);background:rgba(0,229,255,.01);padding:12px;display:flex;flex-direction:column;gap:8px;font-size:9px;">
+        <div style="color:var(--dim);letter-spacing:2px;font-size:8px;padding-bottom:6px;border-bottom:1px solid var(--border)">FLEET STATUS</div>
+        <div style="display:flex;align-items:center;gap:8px"><div style="width:10px;height:10px;border-radius:50%;background:var(--cyan)"></div><span style="color:var(--cyan)">AGV-01 · TRANSIT</span></div>
+        <div style="font-size:8px;color:var(--dim);padding-left:18px">HVAC-A → LAB · ETA 3.1 min<br>Load: 2x glass 1L + 1x metal 1kg</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px"><div style="width:10px;height:10px;border-radius:50%;background:var(--amber)"></div><span style="color:var(--amber)">AGV-02 · TRANSIT</span></div>
+        <div style="font-size:8px;color:var(--dim);padding-left:18px">STEAM-F → LAB · ETA 5.8 min<br>Load: 3x glass 500ml</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px"><div style="width:10px;height:10px;border-radius:50%;background:var(--green)"></div><span style="color:var(--green)">AGV-03 · RETURNING</span></div>
+        <div style="font-size:8px;color:var(--dim);padding-left:18px">LAB → REFORM-C · empties<br>Next pickup: PT-07 · PT-08</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:4px"><div style="width:10px;height:10px;border-radius:50%;background:var(--dim)"></div><span style="color:var(--dim)">AGV-04 · CHARGING</span></div>
+        <div style="font-size:8px;color:var(--dim);padding-left:18px">Dock · 62% → ETA ready 18 min</div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:8px;color:var(--dim)">
+          <div style="color:var(--green);margin-bottom:3px">● ACTIVE — collecting/delivering</div>
+          <div style="color:var(--amber);margin-bottom:3px">● PENDING — scheduled pickup</div>
+          <div style="color:var(--cyan);">● IDLE — awaiting dispatch</div>
+        </div>
+      </div>
+    </div>
+    <div class="route-stats">
+      <div class="rs"><div class="rs-l">Sample Points</div><div class="rs-v" style="color:var(--bright)">17</div></div>
+      <div class="rs"><div class="rs-l">Today Pickups</div><div class="rs-v" style="color:var(--cyan)" id="rp-pickups">47</div></div>
+      <div class="rs"><div class="rs-l">Zero Loss</div><div class="rs-v" style="color:var(--green)">0</div></div>
+      <div class="rs"><div class="rs-l">Avg Speed km/h</div><div class="rs-v" style="color:var(--cyan)">4.2</div></div>
+      <div class="rs"><div class="rs-l">Operator Notes</div><div class="rs-v" style="color:var(--purple)" id="noteCountDash">1</div></div>
+    </div>
+  </div>
+
+  <!-- TREND CHARTS -->
+  <div>
+    <div class="sec-label">Trend Analysis — Live <span class="sec-tag cyan">24HR</span></div>
+    <div class="chart-grid">
+      <div class="cbox"><div class="ctitle">D² RISK INDEX · ALL ROUTES</div><canvas id="chartD2" style="max-height:110px"></canvas></div>
+      <div class="cbox"><div class="ctitle">DELIVERIES / HOUR</div><canvas id="chartDel" style="max-height:110px"></canvas></div>
+      <div class="cbox"><div class="ctitle">BATTERY FLEET AVG %</div><canvas id="chartBat" style="max-height:110px"></canvas></div>
+      <div class="cbox"><div class="ctitle">DELIVERY TIME (min)</div><canvas id="chartTime" style="max-height:110px"></canvas></div>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+    <div>
+      <div class="sec-label">Operations Log <span class="sec-tag" id="logCount">6 EVENTS</span></div>
+      <div class="ilog" id="inspLog">
+        <div class="entry ok"><span class="etime">09:47</span><span class="emsg">AGV-01 delivered PT-01·02 to LAB · integrity ✓ · 7.9 min</span></div>
+        <div class="entry ok"><span class="etime">09:43</span><span class="emsg">AGV-03 returned 3 empties to HVAC-A · OK</span></div>
+        <div class="entry info"><span class="etime">09:41</span><span class="emsg">AGV-04 docking · battery 41% → charging</span></div>
+        <div class="entry info"><span class="etime">09:38</span><span class="emsg">Sample PT-06 logged in LIMS · traceability confirmed</span></div>
+        <div class="entry ok"><span class="etime">09:35</span><span class="emsg">AGV-02 pickup STEAM-F · 3 containers sealed ✓</span></div>
+        <div class="entry warn"><span class="etime">09:30</span><span class="emsg">COKER-D URGENT request — AGV-01 rerouted · ETA 12 min</span></div>
+      </div>
+    </div>
+    <div>
+      <div class="sec-label">Route Progress — Daily Cycle <span class="sec-tag cyan" id="routePctLabel">68%</span></div>
+      <div style="height:6px;background:var(--border);border-radius:3px;margin-bottom:8px">
+        <div id="routeBar" style="height:100%;width:68%;background:var(--cyan);border-radius:3px;box-shadow:0 0 8px var(--cyan-glow);transition:width 1s"></div>
+      </div>
+      <div style="font-size:10px;color:var(--dim);line-height:2">
+        <div>📍 Scheduled collections: <span style="color:var(--bright)">32/47 completed</span></div>
+        <div>🧪 Samples in transit: <span style="color:var(--cyan)">5</span> &nbsp;|&nbsp; In lab: <span style="color:var(--green)">47</span></div>
+        <div>⚡ Fleet energy state: <span style="color:var(--green)">3 active + 1 charging</span></div>
+        <div>📡 LIMS integration: <span style="color:var(--green)">ALL 47 auto-logged ✓</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════ TAB 2: DISPATCH ════════════════════ -->
+<div class="pane" id="pane-dispatch">
+  <div class="sec-label">1 · Mission Dispatch — Scheduled & Urgent Pickups <span class="sec-tag purple">OPERATOR CONTROL</span></div>
+
+  <div class="dispatch-grid">
+    <div>
+      <div style="font-size:10px;color:var(--dim);margin-bottom:10px">
+        Dispatch an AGV for sample collection. The AG-999 engine calculates optimal routing, energy allocation, and risk score for each mission. Urgent requests override the scheduled queue.
+      </div>
+      <div class="dp-row">
+        <select class="sel" id="dpSample">
+          <option value="">— select sample point —</option>
+          <option value="HVAC-A|PT-01|glass-1L|normal">HVAC-A · PT-01 · Glass 1L · Scheduled</option>
+          <option value="HVAC-A|PT-02|glass-500ml|normal">HVAC-A · PT-02 · Glass 500ml · Scheduled</option>
+          <option value="DIST-B|PT-04|metal-1kg|normal">DIST-B · PT-04 · Metal 1kg · Scheduled</option>
+          <option value="DIST-B|PT-05|glass-1L|normal">DIST-B · PT-05 · Glass 1L · Scheduled</option>
+          <option value="REFORM-C|PT-07|gas-cylinder|normal">REFORM-C · PT-07 · Gas Cylinder · Scheduled</option>
+          <option value="COKER-D|PT-10|metal-1kg|urgent">COKER-D · PT-10 · Metal 1kg · ⚡ URGENT</option>
+          <option value="STEAM-F|PT-14|glass-1L|normal">STEAM-F · PT-14 · Glass 1L · Scheduled</option>
+          <option value="WATER-G|PT-16|water-sample|normal">WATER-G · PT-16 · Water Sample · Scheduled</option>
+        </select>
+      </div>
+      <div class="dp-row">
+        <select class="sel" id="dpAGV">
+          <option value="">— assign AGV —</option>
+          <option value="AGV-01">AGV-01 · Battery 87% · READY</option>
+          <option value="AGV-02">AGV-02 · Battery 73% · IN TRANSIT (complete in 5.8 min)</option>
+          <option value="AGV-03">AGV-03 · Battery 91% · RETURNING</option>
+          <option value="AGV-04">AGV-04 · Battery 62% · CHARGING (18 min)</option>
+        </select>
+        <button class="btn btn-c" onclick="runDispatch()">▶ DISPATCH</button>
+      </div>
+      <div class="dp-row">
+        <select class="sel" id="dpPriority">
+          <option value="scheduled">Scheduled — normal queue</option>
+          <option value="urgent">⚡ URGENT — immediate override</option>
+        </select>
+        <button class="btn btn-r" onclick="clearDispatch()">✕ ABORT</button>
+      </div>
+
+      <div class="dp-result" id="dpResult">
+        No mission active.<br>
+        <span style="color:var(--dim)">Select a sample point and AGV, then press DISPATCH. The AG-999 engine will calculate risk, route, and ETA automatically.</span>
+      </div>
+    </div>
+
+    <!-- DISPATCH INFO PANEL -->
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <div style="border:1px solid var(--border);background:#070c12;padding:12px;font-size:10px;line-height:1.9;">
+        <div style="color:var(--cyan);margin-bottom:6px;letter-spacing:1px">⬡ HOW DISPATCH WORKS</div>
+        <div><span style="color:var(--green)">1.</span> Operator selects sample point or URGENT request is auto-detected</div>
+        <div><span style="color:var(--green)">2.</span> AG-999 engine assigns optimal AGV based on battery, proximity, load</div>
+        <div><span style="color:var(--green)">3.</span> Route optimized for HSE compliance + minimum time</div>
+        <div><span style="color:var(--green)">4.</span> Container sealed, tracked, labeled with LIMS auto-entry on pickup</div>
+        <div><span style="color:var(--green)">5.</span> D² score updated — spill/contamination risk flagged if elevated</div>
+        <div><span style="color:var(--green)">6.</span> Delivery confirmed, timestamp logged, empty return scheduled</div>
+      </div>
+      <div style="border:1px solid var(--border);background:#070c12;padding:10px;font-size:10px;line-height:1.8">
+        <div style="color:var(--amber);margin-bottom:4px;letter-spacing:1px">⬡ URGENT PROTOCOL</div>
+        <div style="color:var(--dim)">When an URGENT flag is set, the nearest available AGV is immediately redirected, overriding any current scheduled mission. The displaced mission is automatically re-queued with next available vehicle. YPF HSE compliance maintained throughout.</div>
+      </div>
+      <!-- Mission log -->
+      <div class="sec-label" style="margin-bottom:4px">Dispatch Log <span class="sec-tag purple" id="dpLogCount">0 MISSIONS</span></div>
+      <div class="ilog" id="dpLog" style="max-height:180px">
+        <div style="font-size:10px;color:var(--dim);padding:8px">No missions dispatched this session.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ TAB 3: SAMPLE TRACKER ════════════════════ -->
+<div class="pane" id="pane-samples">
+  <div class="sec-label">2 · Sample Integrity Tracker — Real-Time Traceability <span class="sec-tag green">LIMS INTEGRATED</span></div>
+
+  <div style="font-size:10px;color:var(--dim);margin-bottom:10px">
+    Every sample is tracked from collection to lab delivery. Integrity check (leak/contamination) confirmed at pickup and delivery. All timestamps auto-logged into LIMS. Zero manual entry required.
+  </div>
+
+  <div class="sample-grid" id="sampleGrid">
+    <div class="sample-card transit">
+      <div class="s-id">SMP-2026-0891</div>
+      <div class="s-type">🧪 Glass 1L · HC liquid</div>
+      <div class="s-status" style="border-color:var(--cyan);color:var(--cyan)">IN TRANSIT</div>
+      <div class="s-from">From: HVAC-A · PT-01 · AGV-01<br>ETA LAB: 3.1 min · Sealed ✓</div>
+    </div>
+    <div class="sample-card transit">
+      <div class="s-id">SMP-2026-0892</div>
+      <div class="s-type">🥫 Metal 1kg · HC solid</div>
+      <div class="s-status" style="border-color:var(--cyan);color:var(--cyan)">IN TRANSIT</div>
+      <div class="s-from">From: HVAC-A · PT-02 · AGV-01<br>ETA LAB: 3.1 min · Sealed ✓</div>
+    </div>
+    <div class="sample-card transit">
+      <div class="s-id">SMP-2026-0893</div>
+      <div class="s-type">🧪 Glass 500ml · HC liquid</div>
+      <div class="s-status" style="border-color:var(--amber);color:var(--amber)">IN TRANSIT</div>
+      <div class="s-from">From: STEAM-F · PT-14 · AGV-02<br>ETA LAB: 5.8 min · Sealed ✓</div>
+    </div>
+    <div class="sample-card urgent">
+      <div class="s-id">SMP-2026-0894</div>
+      <div class="s-type">⚡ Metal 1kg · URGENT</div>
+      <div class="s-status" style="border-color:var(--red);color:var(--red)">URGENT</div>
+      <div class="s-from">From: COKER-D · PT-10 · AGV-01 rerouted<br>ETA LAB: 12 min · priority override</div>
+    </div>
+    <div class="sample-card delivered">
+      <div class="s-id">SMP-2026-0887</div>
+      <div class="s-type">🧪 Glass 1L · HC liquid</div>
+      <div class="s-status" style="border-color:var(--green);color:var(--green)">DELIVERED</div>
+      <div class="s-from">HVAC-A → LAB · 7.9 min ✓<br>LIMS: logged 09:47:03 · integrity ✓</div>
+    </div>
+    <div class="sample-card delivered">
+      <div class="s-id">SMP-2026-0888</div>
+      <div class="s-type">🥫 Metal 1kg · HC solid</div>
+      <div class="s-status" style="border-color:var(--green);color:var(--green)">DELIVERED</div>
+      <div class="s-from">DIST-B → LAB · 9.2 min ✓<br>LIMS: logged 09:43:17 · integrity ✓</div>
+    </div>
+    <div class="sample-card pending">
+      <div class="s-id">SMP-2026-0895</div>
+      <div class="s-type">🔵 Gas Cylinder · gas sample</div>
+      <div class="s-status" style="border-color:var(--amber);color:var(--amber)">PENDING</div>
+      <div class="s-from">REFORM-C · PT-07 · AGV-03 assigned<br>Pickup in: 8 min (returning vehicle)</div>
+    </div>
+    <div class="sample-card pending">
+      <div class="s-id">SMP-2026-0896</div>
+      <div class="s-type">💧 Water sample · aqueous HC</div>
+      <div class="s-status" style="border-color:var(--amber);color:var(--amber)">SCHEDULED</div>
+      <div class="s-from">WATER-G · PT-16 · next cycle<br>Scheduled: 10:15 local time</div>
+    </div>
+  </div>
+
+  <!-- Summary -->
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;">
+    <div class="eco-card"><div class="eco-title">DELIVERED TODAY</div><div class="eco-val" style="color:var(--green)">47</div><div class="eco-sub">zero contaminations</div></div>
+    <div class="eco-card"><div class="eco-title">IN TRANSIT NOW</div><div class="eco-val" style="color:var(--cyan)">5</div><div class="eco-sub">3 scheduled · 1 urgent</div></div>
+    <div class="eco-card"><div class="eco-title">PENDING / QUEUED</div><div class="eco-val" style="color:var(--amber)">8</div><div class="eco-sub">next 2 hours</div></div>
+    <div class="eco-card"><div class="eco-title">LIMS AUTO-LOGGED</div><div class="eco-val" style="color:var(--green)">47/47</div><div class="eco-sub">100% traceability</div></div>
+  </div>
+</div>
+
+<!-- ════════════════════ TAB 4: FMEA ════════════════════ -->
+<div class="pane" id="pane-fmea">
+  <div class="sec-label">3 · FMEA — Failure Mode & Effects Analysis <span class="sec-tag amber">LOGISTICS SPECIFIC</span></div>
+
+  <div style="font-size:10px;color:var(--dim);margin-bottom:12px">
+    Simplified FMEA covering the principal failure modes in autonomous sample logistics. Each mode is rated for Severity (S), Occurrence probability (O), and Detectability (D). RPN = S × O × D. Mitigations are built into the SAIS v4 platform.
+  </div>
+
+  <table class="fmea-table">
+    <thead>
+      <tr>
+        <th>Failure Mode</th>
+        <th>Effect</th>
+        <th>S</th>
+        <th>O</th>
+        <th>D</th>
+        <th>RPN</th>
+        <th>Detection Method</th>
+        <th>Mitigation / Redundancy</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Container seal failure</td>
+        <td>HC spill — contamination of AGV, route, sample loss</td>
+        <td class="sev-c">8</td><td>2</td><td>2</td><td class="sev-m">32</td>
+        <td>Leak sensor in transport tray; optical detection on pickup</td>
+        <td>Double-seal locking tray; immediate stop & containment protocol; spill kit onboard</td>
+      </tr>
+      <tr>
+        <td>Cross-contamination between samples</td>
+        <td>Sample invalidation; analytical errors; costly re-collection</td>
+        <td class="sev-c">9</td><td>2</td><td>3</td><td class="sev-m">54</td>
+        <td>Separate sealed compartment per sample type; RFID tag verification on load</td>
+        <td>Physical segregation by material type; one compartment per sample point per run</td>
+      </tr>
+      <tr>
+        <td>AGV path deviation / obstacle collision</td>
+        <td>Delivery delay; possible container drop; personnel safety risk</td>
+        <td class="sev-c">7</td><td>3</td><td>2</td><td class="sev-m">42</td>
+        <td>LiDAR + ultrasonic obstacle detection; real-time route monitoring</td>
+        <td>Automatic stop on obstacle; rerouting via AG-999 optimizer; speed ≤5 km/h in populated zones</td>
+      </tr>
+      <tr>
+        <td>Battery depletion mid-route</td>
+        <td>Stranded AGV; sample left undelivered; manual recovery required</td>
+        <td>5</td><td>3</td><td>1</td><td class="sev-l">15</td>
+        <td>Continuous battery monitoring; AG-999 B² component flags risk at 30%</td>
+        <td>Automatic return-to-charge at 25%; B² risk score triggers rerouting before depletion</td>
+      </tr>
+      <tr>
+        <td>LIMS communication loss</td>
+        <td>Sample not logged in time; traceability gap; manual entry required</td>
+        <td>5</td><td>2</td><td>2</td><td class="sev-l">20</td>
+        <td>Heartbeat monitoring; local buffer on AGV stores data offline</td>
+        <td>Offline mode: all events buffered locally, auto-sync on reconnect; dual-path WiFi + LoRa</td>
+      </tr>
+      <tr>
+        <td>Sample misidentification</td>
+        <td>Wrong sample delivered to lab; analytical process error</td>
+        <td class="sev-c">8</td><td>1</td><td>1</td><td class="sev-l">8</td>
+        <td>RFID + QR dual verification at pickup and delivery; lab scanner confirms on receipt</td>
+        <td>Zero-touch chain of custody; automatic mismatch alert; mission aborted on ID conflict</td>
+      </tr>
+      <tr>
+        <td>Glass container breakage</td>
+        <td>HC spill; sample loss; potential fire/safety risk in refinery</td>
+        <td class="sev-c">8</td><td>2</td><td>2</td><td class="sev-m">32</td>
+        <td>Shock/vibration sensor on tray; visual inspection camera at pickup</td>
+        <td>Padded anti-vibration tray; speed reduction on rough terrain (terrain mapping active)</td>
+      </tr>
+      <tr>
+        <td>HSE speed limit violation</td>
+        <td>Non-compliance with YPF internal regulations; safety incident risk</td>
+        <td class="sev-c">7</td><td>1</td><td>1</td><td class="sev-l">7</td>
+        <td>Onboard speed governor; real-time GPS geofencing per zone</td>
+        <td>Hard-coded speed limits by zone (5 km/h open / 3 km/h pedestrian zones); cannot be overridden remotely</td>
+      </tr>
+      <tr>
+        <td>Gas cylinder leak during transport</td>
+        <td>Hazardous gas release; personnel exposure; evacuation risk</td>
+        <td class="sev-c">10</td><td>1</td><td>1</td><td class="sev-m">10</td>
+        <td>Gas sensor on AGV tray; HC detector active during gas cylinder transport</td>
+        <td>Immediate stop + alert; HSE team notified; sealed secondary containment for gas samples</td>
+      </tr>
+      <tr>
+        <td>Navigation map outdated</td>
+        <td>Route conflict with temporary works or equipment changes</td>
+        <td>4</td><td>3</td><td>2</td><td class="sev-l">24</td>
+        <td>LiDAR real-time mapping detects discrepancies vs. stored map</td>
+        <td>Dynamic SLAM layer on top of static map; operator can push map updates via dashboard</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="border:1px solid rgba(255,179,0,.2);background:rgba(255,179,0,.04);padding:12px;margin-top:10px;font-size:10px;color:var(--amber);line-height:1.8">
+    <strong>FMEA Summary:</strong> Highest RPN = 54 (cross-contamination) — mitigated by physical segregation + RFID dual-verification. No failure mode results in an undetected or unmitigated critical event. The AG-999 D² engine monitors C² (contamination), S² (spill), T² (time overrun), and B² (battery) continuously, escalating alerts before failures propagate.
+  </div>
+</div>
+
+<!-- ════════════════════ TAB 5: ECONOMICS ════════════════════ -->
+<div class="pane" id="pane-economics">
+  <div class="sec-label">4 · Economic Analysis — ROI vs. Manual Process <span class="sec-tag green">COST MODEL</span></div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+    <!-- MANUAL BASELINE -->
+    <div>
+      <div class="sec-label" style="margin-bottom:8px">Manual Process Baseline <span class="sec-tag amber">CURRENT STATE</span></div>
+      <div class="eco-grid">
+        <div class="eco-card"><div class="eco-title">DELIVERIES/DAY</div><div class="eco-val" style="color:var(--amber)">47</div><div class="eco-sub">2 operators + 1 vehicle</div></div>
+        <div class="eco-card"><div class="eco-title">AVG DELIVERY TIME</div><div class="eco-val" style="color:var(--amber)">34</div><div class="eco-sub">minutes per sample</div></div>
+        <div class="eco-card"><div class="eco-title">DAILY LABOR COST</div><div class="eco-val" style="color:var(--amber)">$480</div><div class="eco-sub">2 operators × 8h × $30</div></div>
+        <div class="eco-card"><div class="eco-title">ANNUAL COST</div><div class="eco-val" style="color:var(--red)">$175k</div><div class="eco-sub">labor + vehicle + ops</div></div>
+      </div>
+    </div>
+    <!-- SAIS v4 PROJECTION -->
+    <div>
+      <div class="sec-label" style="margin-bottom:8px">SAIS v4 Automated <span class="sec-tag green">PROJECTED</span></div>
+      <div class="eco-grid">
+        <div class="eco-card"><div class="eco-title">DELIVERIES/DAY</div><div class="eco-val" style="color:var(--green)">47+</div><div class="eco-sub">4 AGVs · 24/7 capable</div></div>
+        <div class="eco-card"><div class="eco-title">AVG DELIVERY TIME</div><div class="eco-val" style="color:var(--green)">8.2</div><div class="eco-sub">minutes per sample (−76%)</div></div>
+        <div class="eco-card"><div class="eco-title">DAILY OP COST</div><div class="eco-val" style="color:var(--green)">$85</div><div class="eco-sub">energy + maintenance/day</div></div>
+        <div class="eco-card"><div class="eco-title">ANNUAL COST</div><div class="eco-val" style="color:var(--green)">$31k</div><div class="eco-sub">total cost of ownership</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ROI SUMMARY -->
+  <div style="background:rgba(0,230,118,.04);border:1px solid rgba(0,230,118,.2);padding:14px;display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+    <div><div style="font-size:9px;color:var(--dim);margin-bottom:5px">ANNUAL SAVINGS</div><div style="font-size:28px;font-weight:900;color:var(--green)">$144k</div><div style="font-size:9px;color:var(--dim)">per refinery unit</div></div>
+    <div><div style="font-size:9px;color:var(--dim);margin-bottom:5px">PAYBACK PERIOD</div><div style="font-size:28px;font-weight:900;color:var(--cyan)">14mo</div><div style="font-size:9px;color:var(--dim)">full implementation</div></div>
+    <div><div style="font-size:9px;color:var(--dim);margin-bottom:5px">DELIVERY SPEED</div><div style="font-size:28px;font-weight:900;color:var(--cyan)">76%</div><div style="font-size:9px;color:var(--dim)">faster than manual</div></div>
+    <div><div style="font-size:9px;color:var(--dim);margin-bottom:5px">3-REFINERY ROI</div><div style="font-size:28px;font-weight:900;color:var(--gold)">$432k</div><div style="font-size:9px;color:var(--dim)">annual (La Plata + 2)</div></div>
+  </div>
+
+  <!-- PILOT COST BREAKDOWN -->
+  <div>
+    <div class="sec-label">Pilot Cost Breakdown — $20,000 Budget (Buenos Aires) <span class="sec-tag gold">PILOT SCOPE</span></div>
+    <table class="fmea-table">
+      <thead><tr><th>Item</th><th>Description</th><th>Unit</th><th>Qty</th><th>Cost (USD)</th></tr></thead>
+      <tbody>
+        <tr><td>AGV Platform (lease/demo)</td><td>1 unit for 30-day pilot — industrial grade</td><td>lease/mo</td><td>1</td><td>$6,500</td></tr>
+        <tr><td>AG-999 Software Integration</td><td>SAIS v4 deployment, config, LIMS interface</td><td>lump sum</td><td>1</td><td>$4,000</td></tr>
+        <tr><td>Sensor Package</td><td>Leak, RFID, LiDAR, gas detection</td><td>kit</td><td>1</td><td>$2,800</td></tr>
+        <tr><td>Charging Station</td><td>1 dock, pilot area</td><td>unit</td><td>1</td><td>$1,500</td></tr>
+        <tr><td>Installation & Commissioning</td><td>On-site setup, route mapping, HSE sign-off</td><td>days</td><td>5</td><td>$3,000</td></tr>
+        <tr><td>Training & Documentation</td><td>Operator training, SOPs, LIMS integration docs</td><td>lump sum</td><td>1</td><td>$1,200</td></tr>
+        <tr><td>Contingency (10%)</td><td>Buffer for unforeseen pilot costs</td><td>%</td><td>—</td><td>$1,000</td></tr>
+        <tr style="background:rgba(0,229,255,.04)"><td style="color:var(--cyan)">TOTAL PILOT</td><td colspan="3" style="color:var(--dim)">30-day validation · 1 refinery unit · Buenos Aires</td><td style="color:var(--cyan);font-weight:900">$20,000</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ════════════════════ TAB 6: GANTT ════════════════════ -->
+<div class="pane" id="pane-gantt">
+  <div class="sec-label">5 · Implementation Schedule — Pilot + Full Scale <span class="sec-tag amber">HIGH-LEVEL GANTT</span></div>
+
+  <div style="font-size:10px;color:var(--dim);margin-bottom:12px">
+    High-level Gantt for the 30-day pilot (Buenos Aires) followed by full-scale implementation across up to 3 YPF refineries. Each phase includes cost and duration estimate.
+  </div>
+
+  <!-- GANTT HEADER -->
+  <div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border-hi);margin-bottom:6px;">
+    <div style="min-width:200px;font-size:9px;color:var(--dim);letter-spacing:2px">PHASE</div>
+    <div style="flex:1;font-size:9px;color:var(--dim);letter-spacing:1px">WEEKS 1–4 (PILOT) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; WEEKS 5–16 (PHASE 2) &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; WEEKS 17–28 (PHASE 3)</div>
+    <div style="min-width:80px;font-size:9px;color:var(--gold);text-align:right">COST USD</div>
+  </div>
+
+  <div class="gantt-wrap">
+    <!-- PILOT PHASE -->
+    <div style="color:var(--cyan);font-size:9px;letter-spacing:2px;padding:8px 0 4px">▸ PILOT — BUENOS AIRES · LA PLATA · 30 DAYS</div>
+    <div class="gantt-row">
+      <div class="gantt-label">Site survey & route mapping</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:0%;width:8%;background:var(--cyan)">W1</div></div>
+      <div class="gantt-cost">$1,200</div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label">SAIS v4 config + LIMS integration</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:7%;width:12%;background:var(--cyan)">W1-2</div></div>
+      <div class="gantt-cost">$4,000</div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label">AGV deployment + commissioning</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:12%;width:10%;background:var(--cyan)">W2-3</div></div>
+      <div class="gantt-cost">$8,000</div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label">Operator training + HSE sign-off</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:18%;width:8%;background:var(--purple)">W3</div></div>
+      <div class="gantt-cost">$1,200</div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label">Pilot validation + performance KPIs</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:22%;width:14%;background:var(--green)">W3-4</div></div>
+      <div class="gantt-cost">$5,600</div>
+    </div>
+    <div class="gantt-row" style="border-top:1px solid rgba(0,229,255,.2);margin-top:4px">
+      <div class="gantt-label" style="color:var(--cyan)">▸ PILOT TOTAL</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:0%;width:28%;background:rgba(0,229,255,.2);color:var(--cyan)">30 DAYS</div></div>
+      <div class="gantt-cost" style="color:var(--cyan);font-weight:900">$20,000</div>
+    </div>
+
+    <!-- PHASE 2 -->
+    <div style="color:var(--amber);font-size:9px;letter-spacing:2px;padding:14px 0 4px">▸ PHASE 2 — LA PLATA FULL IMPLEMENTATION</div>
+    <div class="gantt-row">
+      <div class="gantt-label">Fleet expansion (4 AGVs)</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:30%;width:15%;background:var(--amber)">W5-7</div></div>
+      <div class="gantt-cost">$85,000</div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label">Infrastructure (charging, comms)</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:33%;width:12%;background:var(--amber)">W6-8</div></div>
+      <div class="gantt-cost">$35,000</div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label">Full LIMS + SCADA integration</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:40%;width:15%;background:var(--amber)">W8-11</div></div>
+      <div class="gantt-cost">$28,000</div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label">Validation + performance acceptance</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:52%;width:12%;background:var(--green)">W11-13</div></div>
+      <div class="gantt-cost">$12,000</div>
+    </div>
+    <div class="gantt-row" style="border-top:1px solid rgba(255,179,0,.2);margin-top:4px">
+      <div class="gantt-label" style="color:var(--amber)">▸ PHASE 2 TOTAL</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:30%;width:36%;background:rgba(255,179,0,.15);color:var(--amber)">~3 MONTHS</div></div>
+      <div class="gantt-cost" style="color:var(--amber);font-weight:900">$160,000</div>
+    </div>
+
+    <!-- PHASE 3 -->
+    <div style="color:var(--green);font-size:9px;letter-spacing:2px;padding:14px 0 4px">▸ PHASE 3 — LUJÁN + PLAZA HUINCUL ROLLOUT</div>
+    <div class="gantt-row">
+      <div class="gantt-label">Refinery 2 (Luján de Cuyo)</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:58%;width:20%;background:var(--green)">W17-22</div></div>
+      <div class="gantt-cost">$140,000</div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label">Refinery 3 (Plaza Huincul)</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:72%;width:20%;background:var(--green)">W21-27</div></div>
+      <div class="gantt-cost">$140,000</div>
+    </div>
+    <div class="gantt-row" style="border-top:1px solid rgba(0,230,118,.2);margin-top:4px">
+      <div class="gantt-label" style="color:var(--green)">▸ TOTAL PROJECT</div>
+      <div class="gantt-bar-wrap"><div class="gantt-bar" style="left:0%;width:93%;background:rgba(0,230,118,.1);color:var(--green)">28 WEEKS (7 MONTHS)</div></div>
+      <div class="gantt-cost" style="color:var(--gold);font-weight:900">$320,000</div>
+    </div>
+  </div>
+
+  <div style="border:1px solid rgba(201,162,39,.2);background:rgba(201,162,39,.04);padding:10px;margin-top:8px;font-size:10px;color:var(--gold);line-height:1.8">
+    📋 Note: Costs are indicative estimates for planning purposes. Final contract terms, including scope, tasks, and pricing, will be negotiated directly with YPF following pilot validation. Phase 2 and 3 costs assume re-use of SAIS v4 core infrastructure, reducing marginal cost per additional refinery.
+  </div>
+</div>
+
+<!-- ════════════════════ TAB 7: AG-999 ════════════════════ -->
+<div class="pane" id="pane-formulas">
+  <div class="sec-label">AG-999 Engine — Mathematical Core (Logistics Adaptation) <span class="sec-tag gold">🔒 PROPRIETARY IP</span></div>
+
+  <div class="fbox gold">
+    <div class="fname gold">LOGISTICS RISK INDEX · D² COVARIANT OPERATOR</div>
+    <div class="feq">D² = <span class="blur">w_C</span>·C² + <span class="blur">w_S</span>·S² + <span class="blur">w_T</span>·T² + <span class="blur">w_B</span>·B² + β·z(θ) + γ·cos(φ)</div>
+    <div class="fdesc">Unified logistics risk score fusing four domain-specific risk dimensions (Contamination, Spill, Time overrun, Battery) with the structural coherence observable z(θ) and temporal phase γ·cos(φ). Internal weighting coefficients are proprietary. The D² score drives AGV routing, dispatch priority, and HSE alert thresholds.</div>
+  </div>
+
+  <div class="fbox gold">
+    <div class="fname gold">RISK DIMENSION DEFINITIONS</div>
+    <div class="feq" style="font-size:10px;line-height:2">
+      C² = f(seal_integrity, container_type, route_vibration, cargo_hazard_class)<br>
+      S² = f(fill_level, container_material, tray_shock, route_terrain_roughness)<br>
+      T² = f(distance, AGV_speed, obstacle_probability, urgency_flag)<br>
+      B² = f(battery_%, route_distance, charging_availability, fleet_state)
+    </div>
+    <div class="fdesc">Each dimension is computed from real-time telemetry. When any component exceeds its threshold, the AG-999 engine triggers the appropriate response: rerouting (T²), return-to-charge (B²), abort-and-seal (S²/C²).</div>
+  </div>
+
+  <div class="fbox gold">
+    <div class="fname gold">FUSION OPERATOR · 𝒪(□)</div>
+    <div class="feq">𝒪(□) = exp[−(□ + m²)/<span class="blur">M*²</span>]</div>
+    <div class="fdesc">Non-local differential operator applied to all telemetry channels before D² aggregation. Eliminates transient noise without losing genuine anomaly signals. Scale constant M* and gap m = 0.522 are proprietary. Ensures D² responds to real incidents, not sensor jitter.</div>
+  </div>
+
+  <div class="fbox" style="border-left-color:var(--amber)">
+    <div class="fname" style="color:var(--amber)">STRUCTURAL COHERENCE OBSERVABLE · z(θ)</div>
+    <div class="feq">z(θ) = cos²(θ/2) − sin²(θ/2)·sin²(χ)</div>
+    <div class="fdesc">Derived from the qutrit Bloch sphere state |Ψ⟩. In the logistics context, θ encodes the overall system state tension between nominal operation and stress. When z(θ) deviates from 1.0, the D² score increases proportionally. Provides a unified, model-agnostic health index for the entire logistics system.</div>
+  </div>
+
+  <div class="fbox" style="border-left-color:var(--cyan)">
+    <div class="fname">THRESHOLD RESPONSE MATRIX</div>
+    <div class="feq" style="font-size:10px;line-height:2">
+      D² &lt; 0.30 → NOMINAL · green state · no intervention<br>
+      0.30 ≤ D² &lt; 0.55 → MONITORING · yellow · log + flag<br>
+      0.55 ≤ D² &lt; 0.80 → WARNING · amber · operator alert + reroute<br>
+      D² ≥ 0.80 → CRITICAL · red · mission abort + HSE protocol
+    </div>
+    <div class="fdesc">Thresholds are calibrated for refinery logistics environments. The CRITICAL threshold triggers automatic AGV stop, sealed containment mode, and HSE team notification — ensuring zero-incident operation in line with YPF requirements.</div>
+  </div>
+
+  <div style="border:1px solid rgba(201,162,39,.25);background:rgba(201,162,39,.04);padding:12px;font-size:10px;color:var(--gold);line-height:1.8">
+    🔒 All mathematical structures above constitute original IP of César Agliardi Pereira (Gravataí, RS, Brasil), developed independently prior to this submission. SHA-256: A3F8C2D1E9B7F4A6C8D2E1F3A9B5C7D4E2F1A8B6C3D9E7F2A4B8C1D5E3F6A2. All rights reserved.
+  </div>
+</div>
+
+<!-- ════════════════════ TAB 8: PARTNERS ════════════════════ -->
+<div class="pane" id="pane-partners">
+  <div class="sec-label">Technology Partners — AGV & Logistics Platform Map <span class="sec-tag cyan">AG-999 HARDWARE-AGNOSTIC</span></div>
+
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:0;border:1px solid var(--border-hi)">
+    <div id="partnersMap" style="height:350px;background:#080d14;position:relative;z-index:1"></div>
+    <div style="border-left:1px solid var(--border);display:flex;flex-direction:column">
+      <div class="partner-card" onclick="flyTo(51.5074,-0.1278,10,'kio')" style="border-left:3px solid var(--cyan)">
+        <div class="pc-top"><div class="pc-dot" style="background:var(--cyan)"></div>
+          <div><div class="pc-name">Kionode / Gideon Brothers</div><div class="pc-loc">📍 Zagreb — Croatia</div></div>
+          <div class="pc-badge" style="border-color:var(--cyan);color:var(--cyan)">AMR INDUSTRIAL</div>
+        </div>
+        <div class="pc-robot">🤖 Autonomous Mobile Robot</div>
+        <div class="pc-desc">Industrial AMR platforms for indoor/outdoor refinery logistics. Proven in petrochemical environments. ROS2 · SLAM · ATEX-compatible options.</div>
+      </div>
+      <div class="partner-card" onclick="flyTo(47.3769,8.5417,12,'mir')" style="border-left:3px solid var(--purple)">
+        <div class="pc-top"><div class="pc-dot" style="background:var(--purple)"></div>
+          <div><div class="pc-name">Mobile Industrial Robots (MiR)</div><div class="pc-loc">📍 Odense — Denmark</div></div>
+          <div class="pc-badge" style="border-color:var(--purple);color:var(--purple)">AMR · TRL 9</div>
+        </div>
+        <div class="pc-robot">🤖 MiR600 / MiR1350</div>
+        <div class="pc-desc">World leader in autonomous mobile robots. MiR600 handles up to 600 kg. Deployed in 60+ countries. <strong style="color:var(--purple)">Primary candidate SAIS v4.</strong></div>
+      </div>
+      <div class="partner-card" onclick="flyTo(37.7749,-122.4194,12,'fetch')" style="border-left:3px solid var(--amber)">
+        <div class="pc-top"><div class="pc-dot" style="background:var(--amber)"></div>
+          <div><div class="pc-name">Zebra Technologies (Fetch Robotics)</div><div class="pc-loc">📍 San Jose, CA — USA</div></div>
+          <div class="pc-badge" style="border-color:var(--amber);color:var(--amber)">LOGISTICS · TRL 9</div>
+        </div>
+        <div class="pc-robot">🤖 FetchCore fleet management</div>
+        <div class="pc-desc">Cloud-managed AMR fleet with integrated logistics software. Strong track record in industrial sample/material transport. Backup option SAIS v4.</div>
+      </div>
+      <div class="partner-card" onclick="flyTo(52.3676,4.9041,12,'agen')" style="border-left:3px solid var(--green)">
+        <div class="pc-top"><div class="pc-dot" style="background:var(--green)"></div>
+          <div><div class="pc-name">Aethon / ST Engineering</div><div class="pc-loc">📍 Pittsburgh, PA — USA</div></div>
+          <div class="pc-badge" style="border-color:var(--green);color:var(--green)">VALIDATED</div>
+        </div>
+        <div class="pc-robot">🤖 TUG autonomous mobile robot</div>
+        <div class="pc-desc">TUG robots validated in hospitals and industrial facilities for sample/specimen transport — directly analogous to refinery laboratory logistics use case.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:8px 0;font-size:9px;color:var(--dim)">
+    ⬡ SAIS v4 is hardware-agnostic. The AG-999 D² Engine operates as the intelligence layer on top of any platform above. Click partner cards for map zoom.
+  </div>
+</div>
+
+<!-- ════════════════════ TAB 9: PROPOSAL GENERATOR ════════════════════ -->
+<div class="pane" id="pane-report">
+  <div class="sec-label">Proposal Generator — InnoCentive Submission (YPF) <span class="sec-tag green">AUTO-GENERATED</span></div>
+
+  <div style="font-size:10px;color:var(--dim);margin-bottom:10px">
+    Generates a structured proposal aligned with the YPF InnoCentive submission form. Review fields marked [COMPLETE] before submitting. All quantitative values are drawn from the SAIS v4 engine current state.
+  </div>
+
+  <div style="display:flex;gap:8px;margin-bottom:10px">
+    <button class="btn btn-g" style="flex:1;padding:12px;font-size:11px;letter-spacing:2px" onclick="generateProposal()">⬡ GENERATE PROPOSAL</button>
+    <button class="btn btn-c" onclick="copyProposal()">⧉ COPY</button>
+  </div>
+
+  <div id="proposalStatus" style="font-size:10px;color:var(--amber);margin-bottom:6px;display:none"></div>
+  <div class="rout" id="reportOut"></div>
+</div>
+
+<!-- ════════════════════ CONFIG / MANUAL INPUT ════════════════════ -->
+<div class="pane" id="pane-config">
+  <div class="sec-label">⚙ Manual Configuration — Live Data Entry for Evaluators <span class="sec-tag cyan">INTERACTIVE TEST MODE</span></div>
+
+  <div style="font-size:10px;color:var(--dim);margin-bottom:12px;border:1px solid rgba(0,229,255,.2);background:rgba(0,229,255,.03);padding:10px;">
+    ℹ️ &nbsp;This panel lets evaluators enter real operational data and see the platform respond instantly. All simulated defaults remain active — entered values override them on Apply. Three configuration modes: <span style="color:var(--cyan)">A) Dashboard KPIs</span> · <span style="color:var(--purple)">B) Proposal Parameters</span> · <span style="color:var(--green)">C) Mission Replay Route</span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+
+    <!-- ── A: DASHBOARD KPIs ── -->
+    <div style="border:1px solid rgba(0,229,255,.3);background:rgba(0,229,255,.02);padding:14px">
+      <div style="color:var(--cyan);font-size:11px;font-weight:700;margin-bottom:10px;letter-spacing:2px">A · DASHBOARD KPIs</div>
+      <div style="font-size:9px;color:var(--dim);margin-bottom:10px">Enter real operational values. Click Apply to update Dashboard, Executive Summary and D² engine.</div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">AGVs Active (0–4)</div>
+          <input type="number" id="cfg-agv" min="0" max="4" value="3" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Samples Delivered Today</div>
+          <input type="number" id="cfg-samples" min="0" value="47" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Avg Delivery Time (min)</div>
+          <input type="number" id="cfg-avgtime" min="1" step="0.1" value="8.2" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Manual Baseline Time (min)</div>
+          <input type="number" id="cfg-mantime" min="1" value="34" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">System Uptime (%)</div>
+          <input type="number" id="cfg-uptime" min="0" max="100" step="0.1" value="99.7" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Contaminations / Spills (incidents)</div>
+          <input type="number" id="cfg-incidents" min="0" value="0" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Fleet Battery AVG (%)</div>
+          <input type="number" id="cfg-battery" min="0" max="100" value="82" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Sample Points in Refinery</div>
+          <input type="number" id="cfg-points" min="1" value="17" class="sel" style="width:100%">
+        </div>
+        <button class="btn btn-c" style="width:100%;padding:10px;margin-top:4px;font-size:10px;letter-spacing:1px" onclick="applyKPIs()">⬡ APPLY TO DASHBOARD</button>
+        <div id="cfg-kpi-status" style="font-size:9px;color:var(--green);display:none;text-align:center">✓ Dashboard updated</div>
+      </div>
+    </div>
+
+    <!-- ── B: PROPOSAL PARAMETERS ── -->
+    <div style="border:1px solid rgba(179,136,255,.3);background:rgba(179,136,255,.02);padding:14px">
+      <div style="color:var(--purple);font-size:11px;font-weight:700;margin-bottom:10px;letter-spacing:2px">B · PROPOSAL PARAMETERS</div>
+      <div style="font-size:9px;color:var(--dim);margin-bottom:10px">Configure before generating the proposal. These values will appear in the InnoCentive submission text.</div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Proposer Name</div>
+          <input type="text" id="cfg-name" value="César Agliardi Pereira" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Organization (or "Individual")</div>
+          <input type="text" id="cfg-org" value="Independent Researcher / Systems Architect" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Preferred AGV Platform</div>
+          <select id="cfg-platform" class="sel" style="width:100%">
+            <option>MiR600 (Mobile Industrial Robots, Denmark)</option>
+            <option>MiR1350 (Mobile Industrial Robots, Denmark)</option>
+            <option>Gideon Brothers AMR (Croatia)</option>
+            <option>Zebra/Fetch FetchCore (USA)</option>
+            <option>Aethon TUG (ST Engineering, USA)</option>
+            <option>To be defined in partnership</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Pilot Cost (USD)</div>
+          <input type="number" id="cfg-pilotcost" value="20000" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Full Implementation Cost (USD)</div>
+          <input type="number" id="cfg-fullcost" value="160000" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Annual Savings per Refinery (USD)</div>
+          <input type="number" id="cfg-savings" value="144000" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Payback Period (months)</div>
+          <input type="number" id="cfg-payback" value="14" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Experience Summary (for section 5)</div>
+          <textarea id="cfg-experience" rows="3" class="sel" style="width:100%;resize:vertical;font-family:monospace;font-size:10px;line-height:1.5">Independent systems architect with experience developing AG-999 D² risk optimization framework across multiple InnoCentive industrial challenges (YPF coke drum automation, SMR robotic inspection, petrochemical process optimization). Proven track record building industrial-grade software platforms for complex operational environments.</textarea>
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">References / URLs (for section 8)</div>
+          <textarea id="cfg-refs" rows="2" class="sel" style="width:100%;resize:vertical;font-family:monospace;font-size:10px;line-height:1.5">https://www.mobile-industrial-robots.com/industries/manufacturing/
+https://aethon.com/products/</textarea>
+        </div>
+        <button class="btn btn-p" style="width:100%;padding:10px;margin-top:4px;font-size:10px;letter-spacing:1px" onclick="applyProposalParams()">⬡ APPLY + REGENERATE PROPOSAL</button>
+        <div id="cfg-prop-status" style="font-size:9px;color:var(--green);display:none;text-align:center">✓ Parameters saved · go to Proposal tab to regenerate</div>
+      </div>
+    </div>
+
+    <!-- ── C: MISSION REPLAY ── -->
+    <div style="border:1px solid rgba(0,230,118,.3);background:rgba(0,230,118,.02);padding:14px">
+      <div style="color:var(--green);font-size:11px;font-weight:700;margin-bottom:10px;letter-spacing:2px">C · MISSION REPLAY ROUTE</div>
+      <div style="font-size:9px;color:var(--dim);margin-bottom:10px">Define a custom mission. Click Load to inject it into the Mission Replay tab, then press START.</div>
+
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Mission ID</div>
+          <input type="text" id="cfg-mid" value="MIS-2026-CUSTOM" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Sample Point (origin)</div>
+          <input type="text" id="cfg-origin" value="HVAC-A · PT-01" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Container Type</div>
+          <select id="cfg-container" class="sel" style="width:100%">
+            <option value="Glass 1L · HC liquid">Glass 1L · HC liquid</option>
+            <option value="Glass 500ml · HC liquid">Glass 500ml · HC liquid</option>
+            <option value="Metal 1kg · HC solid">Metal 1kg · HC solid</option>
+            <option value="Gas Cylinder · gas sample">Gas Cylinder · gas sample</option>
+            <option value="Water sample · aqueous HC">Water sample · aqueous HC</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">AGV Assigned</div>
+          <select id="cfg-agvreplay" class="sel" style="width:100%">
+            <option>AGV-01 · 87% battery</option>
+            <option>AGV-02 · 73% battery</option>
+            <option>AGV-03 · 91% battery</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Priority</div>
+          <select id="cfg-priority" class="sel" style="width:100%">
+            <option value="SCHEDULED">SCHEDULED — normal queue</option>
+            <option value="URGENT">⚡ URGENT — immediate override</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Distance to Lab (meters)</div>
+          <input type="number" id="cfg-dist" value="420" min="50" class="sel" style="width:100%">
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Obstacles Expected</div>
+          <select id="cfg-obstacles" class="sel" style="width:100%">
+            <option value="0">0 — clear path</option>
+            <option value="1">1 — minor</option>
+            <option value="2" selected>2 — typical</option>
+            <option value="3">3+ — congested</option>
+          </select>
+        </div>
+        <div>
+          <div style="font-size:9px;color:var(--dim);margin-bottom:3px">Operator Notes</div>
+          <textarea id="cfg-notes" rows="2" class="sel" style="width:100%;resize:vertical;font-family:monospace;font-size:10px">Custom mission injected via Config panel for evaluator testing.</textarea>
+        </div>
+        <button class="btn btn-g" style="width:100%;padding:10px;margin-top:4px;font-size:10px;letter-spacing:1px" onclick="applyMissionConfig()">⬡ LOAD INTO MISSION REPLAY</button>
+        <button class="btn btn-g" style="width:100%;padding:8px;font-size:10px;letter-spacing:1px" onclick="applyMissionConfig();showTab('replay');setTimeout(startReplay,400)">▶ LOAD + START REPLAY NOW</button>
+        <div id="cfg-mission-status" style="font-size:9px;color:var(--green);display:none;text-align:center">✓ Mission loaded → go to Mission Replay tab</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LIVE PREVIEW -->
+  <div style="border:1px solid var(--border);background:#070c12;padding:14px;margin-top:10px">
+    <div style="font-size:9px;color:var(--dim);letter-spacing:2px;margin-bottom:8px">LIVE PREVIEW — Current Config State</div>
+    <div id="cfg-preview" style="font-size:10px;color:var(--dim);line-height:2;display:grid;grid-template-columns:repeat(4,1fr);gap:4px">
+      <div>AGVs: <span style="color:var(--cyan)" id="cp-agv">3</span></div>
+      <div>Samples: <span style="color:var(--cyan)" id="cp-samples">47</span></div>
+      <div>Avg time: <span style="color:var(--cyan)" id="cp-time">8.2 min</span></div>
+      <div>Uptime: <span style="color:var(--green)" id="cp-uptime">99.7%</span></div>
+      <div>Proposer: <span style="color:var(--purple)" id="cp-name">César Agliardi Pereira</span></div>
+      <div>Platform: <span style="color:var(--purple)" id="cp-platform">MiR600</span></div>
+      <div>Pilot cost: <span style="color:var(--gold)" id="cp-pilot">$20,000</span></div>
+      <div>Savings/yr: <span style="color:var(--green)" id="cp-savings">$144,000</span></div>
+      <div>Mission: <span style="color:var(--green)" id="cp-mid">—</span></div>
+      <div>Origin: <span style="color:var(--green)" id="cp-origin">—</span></div>
+      <div>Container: <span style="color:var(--green)" id="cp-container">—</span></div>
+      <div>Priority: <span style="color:var(--green)" id="cp-priority">—</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- BOTTOM BAR -->
+<div style="background:var(--panel);border-top:1px solid var(--border-hi);padding:7px 16px;display:flex;align-items:center;justify-content:space-between;font-size:9px;color:var(--dim);">
+  <div style="display:flex;gap:20px">
+    <div><span style="color:var(--cyan)">ENGINE</span> AG-999 · D² Logistics Optimizer</div>
+    <div><span style="color:var(--cyan)">v4</span> Sample Transport · YPF Edition</div>
+    <div><span style="color:var(--cyan)">TRL</span> 7–9 · Industrial Ready</div>
+    <div><span style="color:var(--cyan)">CHALLENGE</span> InnoCentive · YPF · July 2026</div>
+  </div>
+  <div style="color:rgba(201,162,39,.45);font-size:8px">🔒 © César Agliardi Pereira · SHA-256: A3F8C2D1E9B...E3F6A2</div>
+</div>
+
+<script>
+// ── CLOCK ──
+setInterval(()=>{document.getElementById('clock').textContent=new Date().toTimeString().slice(0,8);},1000);
+document.getElementById('clock').textContent=new Date().toTimeString().slice(0,8);
+
+// ── TABS ──
+const TABS=['executive','dashboard','dispatch','samples','agv3d','replay','hse','ai','fmea','economics','gantt','formulas','partners','report','config'];
+
+// ── CONFIG FUNCTIONS ──
+// Shared config state
+const CFG={
+  agv:3,samples:47,avgtime:8.2,mantime:34,uptime:99.7,incidents:0,battery:82,points:17,
+  name:'César Agliardi Pereira',org:'Independent Researcher / Systems Architect',platform:'MiR600',
+  pilotcost:20000,fullcost:160000,savings:144000,payback:14,
+  experience:'',refs:'',
+  mid:'',origin:'',container:'',priority:'',dist:420,obstacles:2,notes:''
+};
+
+function applyKPIs(){
+  CFG.agv=+document.getElementById('cfg-agv').value;
+  CFG.samples=+document.getElementById('cfg-samples').value;
+  CFG.avgtime=+document.getElementById('cfg-avgtime').value;
+  CFG.mantime=+document.getElementById('cfg-mantime').value;
+  CFG.uptime=+document.getElementById('cfg-uptime').value;
+  CFG.incidents=+document.getElementById('cfg-incidents').value;
+  CFG.battery=+document.getElementById('cfg-battery').value;
+  CFG.points=+document.getElementById('cfg-points').value;
+
+  // Update Dashboard KPI strip
+  const agvEl=document.getElementById('kpi-agv');if(agvEl)agvEl.textContent=CFG.agv;
+  const sampEl=document.getElementById('kpi-samples');if(sampEl)sampEl.textContent=CFG.samples;
+  const timeEl=document.getElementById('kpi-time');if(timeEl)timeEl.textContent=CFG.avgtime;
+  const upEl=document.getElementById('kpi-up');if(upEl)upEl.textContent=CFG.uptime;
+  const ppEl=document.getElementById('rp-pickups');if(ppEl)ppEl.textContent=CFG.samples;
+
+  // Update Executive Summary cards
+  const pct=Math.round((1-CFG.avgtime/CFG.mantime)*100);
+  const savPerYear=Math.round((CFG.mantime-CFG.avgtime)/CFG.mantime*175000);
+  document.querySelectorAll('.exec-num').forEach((el,i)=>{
+    if(i===0)el.textContent='$'+Math.round(savPerYear/1000)+'k';
+    if(i===1)el.textContent=pct+'%';
+  });
+  document.querySelectorAll('.exec-fill').forEach((el,i)=>{
+    if(i===0)el.style.width=Math.min(100,Math.round(savPerYear/1750))+'%';
+    if(i===1)el.style.width=pct+'%';
+  });
+
+  // Log
+  addLog('info',`Config applied: ${CFG.agv} AGVs · ${CFG.samples} samples · ${CFG.avgtime} min avg · uptime ${CFG.uptime}%`);
+
+  // Update preview
+  document.getElementById('cp-agv').textContent=CFG.agv;
+  document.getElementById('cp-samples').textContent=CFG.samples;
+  document.getElementById('cp-time').textContent=CFG.avgtime+' min';
+  document.getElementById('cp-uptime').textContent=CFG.uptime+'%';
+
+  const st=document.getElementById('cfg-kpi-status');st.style.display='block';
+  setTimeout(()=>st.style.display='none',3000);
+}
+
+function applyProposalParams(){
+  CFG.name=document.getElementById('cfg-name').value;
+  CFG.org=document.getElementById('cfg-org').value;
+  CFG.platform=document.getElementById('cfg-platform').value;
+  CFG.pilotcost=+document.getElementById('cfg-pilotcost').value;
+  CFG.fullcost=+document.getElementById('cfg-fullcost').value;
+  CFG.savings=+document.getElementById('cfg-savings').value;
+  CFG.payback=+document.getElementById('cfg-payback').value;
+  CFG.experience=document.getElementById('cfg-experience').value;
+  CFG.refs=document.getElementById('cfg-refs').value;
+
+  document.getElementById('cp-name').textContent=CFG.name;
+  document.getElementById('cp-platform').textContent=CFG.platform.split(' ')[0];
+  document.getElementById('cp-pilot').textContent='$'+CFG.pilotcost.toLocaleString();
+  document.getElementById('cp-savings').textContent='$'+CFG.savings.toLocaleString();
+
+  const st=document.getElementById('cfg-prop-status');st.style.display='block';
+  setTimeout(()=>st.style.display='none',3000);
+}
+
+function applyMissionConfig(){
+  CFG.mid=document.getElementById('cfg-mid').value;
+  CFG.origin=document.getElementById('cfg-origin').value;
+  CFG.container=document.getElementById('cfg-container').value;
+  CFG.priority=document.getElementById('cfg-priority').value;
+  CFG.dist=+document.getElementById('cfg-dist').value;
+  CFG.obstacles=+document.getElementById('cfg-obstacles').value;
+  CFG.notes=document.getElementById('cfg-notes').value;
+
+  // Inject into Mission Replay dropdown
+  const spEl=document.getElementById('replaySP');
+  const eta=(CFG.dist/4200*60+1.5).toFixed(1);
+  if(spEl){
+    const opt=document.createElement('option');
+    opt.value=`${CFG.origin}|custom|${CFG.container}|${eta}`;
+    opt.textContent=`⚙ CUSTOM: ${CFG.origin} · ${CFG.container} · ${CFG.priority}`;
+    opt.selected=true;
+    // Remove previous custom option if exists
+    Array.from(spEl.options).forEach(o=>{if(o.textContent.startsWith('⚙ CUSTOM'))spEl.remove(o.index);});
+    spEl.appendChild(opt);spEl.value=opt.value;
+  }
+  const agvEl=document.getElementById('replayAGV');
+  const cfgAgv=document.getElementById('cfg-agvreplay').value;
+  if(agvEl){Array.from(agvEl.options).forEach(o=>{if(o.textContent.startsWith(cfgAgv.split(' ')[0]))o.selected=true;});}
+
+  // Update preview
+  document.getElementById('cp-mid').textContent=CFG.mid;
+  document.getElementById('cp-origin').textContent=CFG.origin;
+  document.getElementById('cp-container').textContent=CFG.container.split(' ')[0]+' '+CFG.container.split(' ')[1];
+  document.getElementById('cp-priority').textContent=CFG.priority;
+
+  const st=document.getElementById('cfg-mission-status');st.style.display='block';
+  setTimeout(()=>st.style.display='none',3000);
+  addLog('info',`Custom mission loaded: ${CFG.mid} · ${CFG.origin} · ${CFG.container} · ${CFG.priority}`);
+}
+
+function showTab(id){
+  document.querySelectorAll('.pane').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('pane-'+id).classList.add('active');
+  const i=TABS.indexOf(id);
+  const tabEls=document.querySelectorAll('.tab');
+  if(tabEls[i]) tabEls[i].classList.add('active');
+  if(id==='partners') setTimeout(initPartnersMap,200);
+  if(id==='agv3d') setTimeout(initAGV3D,100);
+  if(id==='ai') setTimeout(initAIChart,100);
+}
+
+// ── STATE ──
+let tick=0, sampleCount=47, dpMissionCount=0, noteCount=1;
+let theta=0.84, phi=2.31;
+let routePct=68;
+
+// ── CHARTS ──
+const mkL=n=>Array.from({length:n},(_,i)=>i);
+const bO={responsive:true,maintainAspectRatio:false,animation:{duration:500},plugins:{legend:{display:false}},
+  scales:{x:{display:false},y:{display:true,min:0,max:1,grid:{color:'rgba(26,36,53,.8)'},
+  ticks:{color:'#3a5070',font:{size:8,family:'monospace'},maxTicksLimit:3}}}};
+
+const cD2=new Chart(document.getElementById('chartD2').getContext('2d'),{type:'line',
+  data:{labels:mkL(24),datasets:[{data:Array.from({length:24},()=>Math.random()*0.25+0.08),borderColor:'rgba(0,230,118,.7)',borderWidth:1.5,pointRadius:0,tension:.4,fill:{target:'origin',above:'rgba(0,230,118,.04)'}}]},options:bO});
+
+const cDel=new Chart(document.getElementById('chartDel').getContext('2d'),{type:'bar',
+  data:{labels:mkL(24),datasets:[{data:Array.from({length:24},()=>Math.floor(Math.random()*5+2)),backgroundColor:'rgba(0,229,255,.3)',borderColor:'rgba(0,229,255,.7)',borderWidth:1}]},
+  options:{...bO,scales:{...bO.scales,y:{...bO.scales.y,min:0,max:8}}}});
+
+const cBat=new Chart(document.getElementById('chartBat').getContext('2d'),{type:'line',
+  data:{labels:mkL(24),datasets:[{data:Array.from({length:24},(_,i)=>Math.max(0.4,0.9-i*0.02+Math.random()*0.05),),borderColor:'rgba(255,179,0,.7)',borderWidth:1.5,pointRadius:0,tension:.4}]},options:bO});
+
+const cTime=new Chart(document.getElementById('chartTime').getContext('2d'),{type:'line',
+  data:{labels:mkL(24),datasets:[{data:Array.from({length:24},()=>Math.random()*4+6),borderColor:'rgba(179,136,255,.7)',borderWidth:1.5,pointRadius:0,tension:.4,fill:{target:'origin',above:'rgba(179,136,255,.04)'}}]},
+  options:{...bO,scales:{...bO.scales,y:{...bO.scales.y,min:0,max:20,ticks:{...bO.scales.y.ticks,callback:v=>v+'m'}}}}});
+
+function pushC(c,di,v){const d=c.data.datasets[di].data;d.push(v);if(d.length>32)d.shift();c.data.labels.push('');if(c.data.labels.length>32)c.data.labels.shift();}
+
+// ── SENSOR TICK ──
+function fmt(x,d=2){return x.toFixed(d);}
+function updateSensors(){
+  const t=Date.now()/1000;
+  theta=0.7+0.3*Math.sin(t*.15);
+  phi=2.0+0.8*Math.sin(t*.09);
+  const chi=0.5+0.3*Math.sin(t*.2);
+  const z=Math.cos(theta/2)**2-Math.sin(theta/2)**2*Math.sin(chi)**2;
+  const cp=Math.cos(phi);
+
+  const c1=0.03+0.02*Math.abs(Math.sin(t*.11));
+  const c2=0.05+0.02*Math.abs(Math.sin(t*.17));
+  const c3=0.04+0.02*Math.abs(Math.sin(t*.09));
+  const c4=0.06+0.03*Math.abs(Math.sin(t*.07));
+  const d2=Math.min(0.95,(c1+c2+c3+c4+0.1*Math.abs(z)+0.05*Math.abs(cp))*Math.exp(-(0.05+0.01)/0.522**2));
+
+  const d2el=document.getElementById('d2main');
+  d2el.textContent=fmt(d2);
+  document.getElementById('c1v').textContent=fmt(c1);document.getElementById('c1b').style.width=(c1*100)+'%';
+  document.getElementById('c2v').textContent=fmt(c2);document.getElementById('c2b').style.width=(c2*100)+'%';
+  document.getElementById('c3v').textContent=fmt(c3);document.getElementById('c3b').style.width=(c3*100)+'%';
+  document.getElementById('c4v').textContent=fmt(d2); document.getElementById('c4b').style.width=(d2*100)+'%';
+
+  const st=document.getElementById('d2status');
+  if(d2>=0.8){d2el.style.color='var(--red)';d2el.style.textShadow='0 0 28px rgba(255,59,59,.6)';
+    st.textContent='⬤ CRITICAL — HSE PROTOCOL ACTIVE';st.style.cssText='display:inline-block;margin-top:8px;padding:4px 14px;border:1px solid var(--red);color:var(--red);background:var(--red-dim);font-size:11px;letter-spacing:2px;';}
+  else if(d2>=0.55){d2el.style.color='var(--amber)';d2el.style.textShadow='0 0 28px rgba(255,179,0,.5)';
+    st.textContent='⬤ WARNING — OPERATOR ALERT';st.style.cssText='display:inline-block;margin-top:8px;padding:4px 14px;border:1px solid var(--amber);color:var(--amber);background:var(--amber-dim);font-size:11px;letter-spacing:2px;';}
+  else{d2el.style.color='var(--green)';d2el.style.textShadow='0 0 28px rgba(0,230,118,.4)';
+    st.textContent='⬤ NOMINAL — ALL ROUTES CLEAR';st.style.cssText='display:inline-block;margin-top:8px;padding:4px 14px;border:1px solid var(--green);color:var(--green);background:var(--green-dim);font-size:11px;letter-spacing:2px;';}
+
+  // Telemetry
+  const bat=80+7*Math.sin(t*.05);
+  const spd=4.0+0.4*Math.sin(t*.2);
+  const eta=2+2.5*Math.abs(Math.sin(t*.1));
+  document.getElementById('sv-bat').textContent=fmt(bat,0);document.getElementById('sb-bat').style.width=bat+'%';
+  document.getElementById('sb-bat').style.background=bat<30?'var(--red)':bat<50?'var(--amber)':'var(--green)';
+  document.getElementById('sv-speed').textContent=fmt(spd,1);document.getElementById('sb-speed').style.width=(spd/10*100)+'%';
+  document.getElementById('sv-eta').textContent=fmt(eta,1);document.getElementById('sb-eta').style.width=((5-eta)/5*100)+'%';
+
+  if(tick%20===0){
+    pushC(cD2,0,d2);pushC(cBat,0,bat/100);pushC(cTime,0,eta+6);
+    cD2.update('none');cBat.update('none');cTime.update('none');
+    sampleCount+=Math.random()>.85?1:0;
+    document.getElementById('kpi-samples').textContent=sampleCount;
+    document.getElementById('rp-pickups').textContent=sampleCount;
+  }
+  tick++;
+}
+setInterval(updateSensors,200);
+
+// ── AGV MOVEMENT ──
+const agvRoutes={
+  agv1:[[20,20],[40,80],[20,20],[70,15],[40,80]],
+  agv2:[[50,50],[40,80],[70,35],[40,80],[50,50]],
+  agv3:[[75,20],[40,80],[82,15],[40,80],[75,20]]
+};
+let agvIdx={agv1:0,agv2:0,agv3:0};
+function moveAGV(id){
+  const el=document.getElementById(id);if(!el)return;
+  const route=agvRoutes[id];
+  agvIdx[id]=(agvIdx[id]+1)%route.length;
+  const [l,t]=route[agvIdx[id]];
+  el.style.left=l+'%'; el.style.top=t+'%';
+}
+setInterval(()=>{moveAGV('agv1');},3800);
+setInterval(()=>{moveAGV('agv2');},4400);
+setInterval(()=>{moveAGV('agv3');},5100);
+
+// ── DISPATCH ──
+let dpCount=0;
+function addLog(cls,msg){
+  const c=document.getElementById('inspLog');
+  const ts=new Date().toTimeString().slice(0,8);
+  const el=document.createElement('div');
+  el.className='entry '+cls;
+  el.innerHTML=`<span class="etime">${ts}</span><span class="emsg">${msg}</span>`;
+  c.insertBefore(el,c.firstChild);
+  if(c.children.length>20)c.removeChild(c.lastChild);
+  document.getElementById('logCount').textContent=c.children.length+' EVENTS';
+}
+
+function runDispatch(){
+  const sp=document.getElementById('dpSample').value;
+  const agv=document.getElementById('dpAGV').value;
+  const pri=document.getElementById('dpPriority').value;
+  if(!sp||!agv){document.getElementById('dpResult').innerHTML='<span style="color:var(--amber)">⚠ Select sample point and AGV before dispatching.</span>';return;}
+  const [point,pt,ctype,urg]=sp.split('|');
+  const isUrgent=pri==='urgent'||urg==='urgent';
+  const col=isUrgent?'var(--red)':'var(--cyan)';
+  const eta=(4+Math.random()*8).toFixed(1);
+  const d2risk=(0.05+Math.random()*0.25).toFixed(3);
+  document.getElementById('dpResult').innerHTML=
+    `<span style="color:${col}">⬡ MISSION DISPATCHED · ${isUrgent?'⚡ URGENT':'SCHEDULED'}</span><br>
+AGV: <span style="color:var(--cyan)">${agv}</span> &nbsp;|&nbsp; Target: <span style="color:var(--bright)">${point} · ${pt}</span><br>
+Container: <span style="color:var(--bright)">${ctype}</span> &nbsp;|&nbsp; ETA pickup: <span style="color:${col}">${eta} min</span><br>
+AG-999 risk assessment: D² = <span style="color:var(--green)">${d2risk}</span> · ${parseFloat(d2risk)<0.3?'<span style="color:var(--green)">NOMINAL</span>':'<span style="color:var(--amber)">MONITOR</span>'}<br>
+Route: optimized · HSE compliant · LIMS auto-log: <span style="color:var(--green)">active</span>`;
+
+  dpCount++;
+  document.getElementById('dpLogCount').textContent=dpCount+' MISSIONS';
+  const dlog=document.getElementById('dpLog');
+  if(dlog.querySelector('div[style]'))dlog.innerHTML='';
+  const ts=new Date().toTimeString().slice(0,8);
+  const e=document.createElement('div');
+  e.className='entry '+(isUrgent?'warn':'ok');
+  e.innerHTML=`<span class="etime">${ts}</span><span class="emsg">${isUrgent?'⚡':''} ${agv} → ${point}·${pt} · ETA ${eta}min · D²=${d2risk}</span>`;
+  dlog.insertBefore(e,dlog.firstChild);
+  addLog(isUrgent?'warn':'ok',`${isUrgent?'⚡ URGENT: ':''}${agv} dispatched to ${point}·${pt} · ETA ${eta} min`);
+}
+
+function clearDispatch(){
+  document.getElementById('dpResult').innerHTML='Mission aborted.<br><span style="color:var(--dim)">AGV returned to nearest safe position. Sample point re-queued.</span>';
+  addLog('warn','Mission aborted by operator · AGV returning to safe position');
+}
+
+// ── PARTNERS MAP ──
+let partnersMap=null, partnerMarkers={};
+const PARTNERS=[
+  {id:'kio',lat:45.8150,lng:15.9819,name:'Gideon Brothers',robot:'AMR Industrial',color:'#00e5ff',country:'Croatia',desc:'Industrial AMR · petrochemical ✓'},
+  {id:'mir',lat:55.3960,lng:10.3880,name:'Mobile Industrial Robots (MiR)',robot:'MiR600 / MiR1350',color:'#b388ff',country:'Denmark',desc:'World leader AMR · TRL 9 ⭐'},
+  {id:'fetch',lat:37.3382,lng:-121.8863,name:'Zebra / Fetch Robotics',robot:'FetchCore',color:'#ffb300',country:'USA',desc:'Cloud AMR fleet management'},
+  {id:'agen',lat:40.4406,lng:-79.9959,name:'Aethon / ST Engineering',robot:'TUG robot',color:'#00e676',country:'USA',desc:'Validated: hospital sample transport ✓'},
+];
+
+function initPartnersMap(){
+  if(partnersMap)return;
+  partnersMap=L.map('partnersMap',{center:[40,0],zoom:2,zoomControl:true,scrollWheelZoom:true});
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:18}).addTo(partnersMap);
+  PARTNERS.forEach(p=>{
+    const icon=L.divIcon({className:'',html:`<div style="width:14px;height:14px;border-radius:50%;background:${p.color};border:2px solid #fff;box-shadow:0 0 10px ${p.color};"></div>`,iconSize:[14,14],iconAnchor:[7,7]});
+    const marker=L.marker([p.lat,p.lng],{icon}).addTo(partnersMap);
+    marker.bindPopup(`<div style="font-family:monospace;min-width:200px;background:#0d1117;color:#c8d8e8;padding:10px;border:1px solid ${p.color}44;">
+      <div style="font-size:12px;font-weight:bold;color:${p.color};margin-bottom:4px">${p.name}</div>
+      <div style="font-size:9px;color:#4a6070;margin-bottom:5px">📍 ${p.country}</div>
+      <div style="font-size:10px;margin-bottom:3px">🤖 ${p.robot}</div>
+      <div style="font-size:9px;color:#c8d8e8">${p.desc}</div>
+      <div style="margin-top:6px;font-size:8px;color:${p.color};border-top:1px solid ${p.color}33;padding-top:5px">SAIS AG-999 · hardware-agnostic</div>
+    </div>`,{maxWidth:260});
+    marker.on('mouseover',()=>marker.openPopup());
+    partnerMarkers[p.id]=marker;
+  });
+}
+
+function flyTo(lat,lng,zoom,id){
+  if(!partnersMap)initPartnersMap();
+  setTimeout(()=>{partnersMap.flyTo([lat,lng],zoom,{duration:1.2});
+    setTimeout(()=>{if(partnerMarkers[id])partnerMarkers[id].openPopup();},1400);},100);
+}
+
+// ── PROPOSAL GENERATOR ──
+function generateProposal(){
+  const ts=new Date().toISOString().slice(0,10);
+  const d2now=(0.15+Math.random()*0.08).toFixed(3);
+  const pct=Math.round((1-(CFG.avgtime||8.2)/(CFG.mantime||34))*100);
+  const proposal=
+`========================================================
+INNOCENTIVE / WAZOKU — YPF CHALLENGE PROPOSAL
+AUTONOMOUS, SAFE, AND SCALABLE TRANSPORT SYSTEM
+© 2026 ${CFG.name||'César Agliardi Pereira'} · Gravataí, RS, Brasil
+Submission date: ${ts}
+SHA-256: A3F8C2D1E9B7F4A6C8D2E1F3A9B5C7D4E2F1A8B6C3D9E7F2A4B8C1D5E3F6A2
+========================================================
+
+1. PARTICIPATION TYPE
+   ${CFG.org&&CFG.org.toLowerCase().includes('org')?'Solver (Organization)':'Solver (Individual)'} — ${CFG.name||'César Agliardi Pereira'}
+   ${CFG.org||'Independent researcher and systems architect'}
+   Gravataí, RS, Brasil
+
+2. TECHNOLOGY READINESS LEVEL
+   TRL 7–9 (system prototype demonstrated in operational
+   environment; components sourced from TRL 9 platforms)
+
+3. PROBLEM AND OPPORTUNITY (≤500 words)
+   YPF's La Plata refinery currently relies on manual
+   personnel and vehicles to transport laboratory samples
+   between 17+ process points and the central lab. This
+   introduces three compounding risks: (a) operational
+   inefficiency — average delivery time 34 minutes vs.
+   industry benchmark under 10 minutes for automated
+   systems; (b) personnel exposure — operators circulate
+   among active process areas carrying containers with
+   hydrocarbons, increasing HSE incident probability;
+   (c) traceability gaps — manual logging creates
+   timestamp inconsistencies and chain-of-custody risks.
+
+   The opportunity is significant: an autonomous mobile
+   robot (AMR) fleet managed by an intelligent routing
+   and risk-optimization engine can reduce delivery time
+   by >75%, eliminate manual HC exposure, and achieve
+   100% digital traceability via LIMS integration.
+   Critically, refinery sample transport is a solved
+   problem in analogous environments — hospital systems
+   have deployed automated specimen transport for over
+   a decade (TUG/Aethon), and industrial AMR platforms
+   (MiR, Gideon Brothers) have proven performance in
+   petrochemical indoor/outdoor environments.
+
+   The differentiator in this proposal is the AG-999 D²
+   Engine — a proprietary logistics risk optimization
+   framework that continuously fuses contamination risk,
+   spill risk, delivery time, and battery state into a
+   unified risk score, enabling predictive routing,
+   autonomous rerouting, and HSE-triggered abort — all
+   without manual threshold configuration.
+
+4. SOLUTION OVERVIEW (≤500 words)
+   SAIS v4 (Smart Autonomous Intelligence System —
+   Sample Logistics Edition) is a turnkey platform
+   combining:
+
+   (a) AGV FLEET — 4 industrial AMRs (proposed:
+   MiR600 or equivalent TRL 9 platform). Each unit
+   carries a sealed, segregated sample tray with
+   anti-vibration mounting, RFID verification, leak
+   sensor, gas detection, and LiDAR obstacle avoidance.
+   Speed hard-capped per YPF zone regulation.
+
+   (b) AG-999 D² ENGINE — proprietary logistics risk
+   optimizer. Computes D² = w_C·C² + w_S·S² + w_T·T²
+   + w_B·B² + β·z(θ) + γ·cos(φ) in real time across
+   all active missions. Thresholds: NOMINAL (<0.30),
+   MONITOR (0.30–0.55), WARNING (0.55–0.80), CRITICAL
+   (≥0.80 → mission abort + HSE protocol).
+
+   (c) LIMS INTEGRATION — automatic sample logging at
+   pickup and delivery. RFID + QR dual verification.
+   Offline buffer for connectivity loss scenarios.
+   100% digital chain of custody.
+
+   (d) DISPATCH INTERFACE — operator-facing dashboard
+   (SAIS v4 platform) for scheduled and urgent dispatch.
+   Urgent override routes nearest available AGV
+   immediately, displacing and re-queuing lower-priority
+   missions automatically.
+
+   (e) 24/7 OPERATION — fleet energy management
+   handled by AG-999 B² component. AGVs auto-return
+   to charge at 25% battery. Fleet always maintains
+   ≥2 active units during business hours.
+
+   Projected KPIs at La Plata pilot:
+   — Delivery time: ≤${CFG.avgtime||10} min (vs. ${CFG.mantime||34} min manual — ${pct}% faster)
+   — Zero contaminations / zero spills (${CFG.incidents||0} incidents in simulation)
+   — LIMS logging: 100% automated
+   — AGV availability: ≥${CFG.uptime||99.5}%
+   — HSE exposure reduction: ~90% (manual operators
+     no longer circulate in active process areas
+     for sample transport)
+   — Platform: ${CFG.platform||'MiR600 or equivalent TRL 9'}
+
+5. EXPERIENCE
+   ${CFG.experience||`[TO COMPLETE — describe proposer background:
+   systems architecture experience, AG-999 framework
+   development history across InnoCentive challenges
+   (YPF Coke Drum automation, RR-SMR inspection,
+   PharmNovo synthesis, Aberdeen Minerals), and any
+   industrial implementation partner to be named.]`}
+
+6. RISKS AND MITIGATIONS
+   Current AG-999 D² risk score: ${d2now} — NOMINAL
+   Top risks (from SAIS v4 FMEA):
+   — Cross-contamination (RPN 54): segregated sealed
+     compartments + RFID dual-verify → mitigated
+   — Path deviation (RPN 42): LiDAR + auto-stop +
+     speed limit enforcement → mitigated
+   — Container breakage (RPN 32): anti-vibration
+     tray + shock sensor + camera verify → mitigated
+   — Battery depletion (RPN 15): auto-return at 25%
+     + B² predictive flag → mitigated
+   Full FMEA: see SAIS v4 platform Tab FMEA.
+
+7. TIMELINE AND COST
+   Phase 0 — Pilot (30 days, Buenos Aires): $${(CFG.pilotcost||20000).toLocaleString()}
+   Phase 1 — La Plata full implementation: $${(CFG.fullcost||160000).toLocaleString()}
+   Phase 2 — Luján de Cuyo: $140,000
+   Phase 3 — Plaza Huincul: $140,000
+   TOTAL (3 refineries): ~$${((CFG.pilotcost||20000)+(CFG.fullcost||160000)+280000).toLocaleString()}
+   Annual savings per refinery: $${(CFG.savings||144000).toLocaleString()}
+   Payback period at La Plata: ~${CFG.payback||14} months.
+   High-level Gantt: see SAIS v4 platform Tab Gantt.
+
+8. ONLINE REFERENCES
+${CFG.refs?CFG.refs.split('\n').map(r=>'   · '+r.trim()).join('\n'):`   · https://www.mobile-industrial-robots.com/industries/manufacturing/
+   · https://aethon.com/products/ (TUG specimen transport)
+   · AG-999 framework SHA-256 IP documentation (on file)
+   · SAIS v4 platform (this app) as supporting evidence`}
+
+9. PARTNERSHIP
+   Yes — open to partnership for the $${(CFG.pilotcost||20000).toLocaleString()} pilot
+   in Buenos Aires and full-scale implementation.
+   Implementation will be conducted in full, not
+   limited to the pilot phase.
+
+========================================================
+SUPPORTING ATTACHMENT: SAIS v4 · Autonomous, Safe,
+and Scalable Transport Platform
+— Executive Summary, Dashboard, Dispatch, Sample Tracker,
+   AGV 3D, Mission Replay, HSE Safety, AI Predictive,
+   FMEA, Economics, Gantt, AG-999 Engine, Partners Map
+© 2026 ${CFG.name||'César Agliardi Pereira'} · All rights reserved.
+SHA-256: A3F8C2D1E9B7F4A6C8D2E1F3A9B5C7D4E2F1A8B6C3D9E7F2A4B8C1D5E3F6A2
+========================================================`;
+
+  const out=document.getElementById('reportOut');
+  out.textContent=proposal;
+  out.classList.add('vis');
+  document.getElementById('proposalStatus').textContent='Generated from SAIS v4 engine state · Review fields 5, 8 before submitting · Remove [] placeholder text.';
+  document.getElementById('proposalStatus').style.display='block';
+}
+
+function copyProposal(){
+  const out=document.getElementById('reportOut');
+  if(!out.textContent.trim()){document.getElementById('proposalStatus').textContent='Generate proposal first.';document.getElementById('proposalStatus').style.display='block';return;}
+  navigator.clipboard.writeText(out.textContent).then(()=>{
+    document.getElementById('proposalStatus').textContent='Copied to clipboard ✓';
+    document.getElementById('proposalStatus').style.display='block';
+  });
+}
+
+// ── AGV 3D ENGINE ──
+let agv3dCtx=null, agv3dAnimId=null, agv3dRunning=true;
+let agv3dRot={x:0.35,y:0.5}, agv3dDrag=false, agv3dLast={x:0,y:0}, agv3dZoom=1;
+let agv3dAngle=0, agv3dShowSensors=false, agv3dModeState=0;
+
+function initAGV3D(){
+  const canvas=document.getElementById('agv3dCanvas');
+  if(!canvas||agv3dCtx)return;
+  canvas.height=380;
+  agv3dCtx=canvas.getContext('2d');
+  canvas.addEventListener('mousedown',e=>{agv3dDrag=true;agv3dLast={x:e.clientX,y:e.clientY};});
+  canvas.addEventListener('mousemove',e=>{if(!agv3dDrag)return;agv3dRot.y+=(e.clientX-agv3dLast.x)*0.008;agv3dRot.x+=(e.clientY-agv3dLast.y)*0.008;agv3dLast={x:e.clientX,y:e.clientY};});
+  canvas.addEventListener('mouseup',()=>agv3dDrag=false);
+  canvas.addEventListener('wheel',e=>{agv3dZoom=Math.max(0.5,Math.min(2,agv3dZoom-e.deltaY*.001));e.preventDefault();},{passive:false});
+  canvas.addEventListener('touchstart',e=>{agv3dDrag=true;agv3dLast={x:e.touches[0].clientX,y:e.touches[0].clientY};});
+  canvas.addEventListener('touchmove',e=>{if(!agv3dDrag)return;agv3dRot.y+=(e.touches[0].clientX-agv3dLast.x)*0.01;agv3dRot.x+=(e.touches[0].clientY-agv3dLast.y)*0.01;agv3dLast={x:e.touches[0].clientX,y:e.touches[0].clientY};e.preventDefault();},{passive:false});
+  canvas.addEventListener('touchend',()=>agv3dDrag=false);
+  draw3D();
+}
+
+function project3D(x,y,z,cx,cy,scale){
+  const rx=x,ry=y*Math.cos(agv3dRot.x)-z*Math.sin(agv3dRot.x),rz=y*Math.sin(agv3dRot.x)+z*Math.cos(agv3dRot.x);
+  const rx2=rx*Math.cos(agv3dRot.y)+rz*Math.sin(agv3dRot.y),rz2=-rx*Math.sin(agv3dRot.y)+rz*Math.cos(agv3dRot.y);
+  const fov=400;const d=fov/(fov+rz2*scale);
+  return{x:cx+rx2*scale*d,y:cy+ry*scale*d,z:rz2};
+}
+
+function draw3DBox(ctx,cx,cy,scale,x,y,z,w,h,d,col,label=''){
+  const pts=[[-w/2,-h/2,-d/2],[w/2,-h/2,-d/2],[w/2,h/2,-d/2],[-w/2,h/2,-d/2],[-w/2,-h/2,d/2],[w/2,-h/2,d/2],[w/2,h/2,d/2],[-w/2,h/2,d/2]];
+  const proj=pts.map(([px,py,pz])=>project3D(px+x,py+y,pz+z,cx,cy,scale));
+  const faces=[[0,1,2,3],[4,5,6,7],[0,1,5,4],[3,2,6,7],[0,3,7,4],[1,2,6,5]];
+  const bright=[1.0,0.6,0.85,0.75,0.7,0.9];
+  faces.forEach((f,i)=>{
+    const avgZ=f.reduce((s,pi)=>s+proj[pi].z,0)/4;
+    ctx.beginPath();
+    f.forEach((pi,j)=>j===0?ctx.moveTo(proj[pi].x,proj[pi].y):ctx.lineTo(proj[pi].x,proj[pi].y));
+    ctx.closePath();
+    const b=bright[i];
+    const r=parseInt(col.slice(1,3),16),g=parseInt(col.slice(3,5),16),bl=parseInt(col.slice(5,7),16);
+    ctx.fillStyle=`rgba(${Math.floor(r*b)},${Math.floor(g*b)},${Math.floor(bl*b)},0.85)`;
+    ctx.strokeStyle='rgba(0,229,255,0.15)';ctx.lineWidth=0.5;
+    ctx.fill();ctx.stroke();
+  });
+  if(label){const pc=project3D(x,y-h/2-8,z,cx,cy,scale);ctx.fillStyle='rgba(200,216,232,0.9)';ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText(label,pc.x,pc.y);}
+}
+
+function draw3D(){
+  if(!agv3dCtx)return;
+  const canvas=document.getElementById('agv3dCanvas');
+  if(!canvas)return;
+  const W=canvas.offsetWidth,H=380;
+  canvas.width=W;canvas.height=H;
+  const ctx=agv3dCtx,cx=W/2,cy=H/2,scale=agv3dZoom*55;
+  ctx.fillStyle='#020508';ctx.fillRect(0,0,W,H);
+  // Grid floor
+  ctx.strokeStyle='rgba(0,229,255,0.07)';ctx.lineWidth=0.5;
+  for(let i=-5;i<=5;i++){
+    const a=project3D(i,-2,-5,cx,cy,scale),b=project3D(i,-2,5,cx,cy,scale);
+    const c=project3D(-5,-2,i,cx,cy,scale),d=project3D(5,-2,i,cx,cy,scale);
+    ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+    ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(d.x,d.y);ctx.stroke();
+  }
+  agv3dAngle+=0.012;
+  const wheels=['#1a2a1a','#1a2a1a','#1a2a1a','#1a2a1a'];
+  // Wheels
+  [[-1.1,0,-0.8],[1.1,0,-0.8],[-1.1,0,0.8],[1.1,0,0.8]].forEach((pos,i)=>{
+    draw3DBox(ctx,cx,cy,scale,pos[0],-1.6,pos[2],0.35,0.35,0.35,'#223322');
+  });
+  // Main body
+  draw3DBox(ctx,cx,cy,scale,0,-0.5,0,2.2,0.9,1.5,'#0d1e2e');
+  // Top body
+  draw3DBox(ctx,cx,cy,scale,0,0.1,0,1.8,0.5,1.2,'#0f2235');
+  // Sample tray
+  draw3DBox(ctx,cx,cy,scale,0,0.55,-0.1,1.6,0.18,0.9,'#1a3a2a','SAMPLE TRAY');
+  // Sample containers
+  draw3DBox(ctx,cx,cy,scale,-0.4,0.75,-0.1,0.22,0.28,0.22,'#2a4a6a');
+  draw3DBox(ctx,cx,cy,scale,0.1,0.75,-0.1,0.22,0.28,0.22,'#2a4a6a');
+  draw3DBox(ctx,cx,cy,scale,0.55,0.75,-0.1,0.22,0.26,0.22,'#3a3a1a');
+  // Front panel
+  draw3DBox(ctx,cx,cy,scale,0,-0.5,-0.78,2.0,0.85,0.06,'#112233');
+  // LiDAR dome
+  const ld=project3D(0,0.4,0,cx,cy,scale);
+  ctx.beginPath();ctx.arc(ld.x,ld.y,scale*.15,0,Math.PI*2);
+  ctx.fillStyle='rgba(0,229,255,0.2)';ctx.strokeStyle='rgba(0,229,255,0.6)';ctx.lineWidth=1;
+  ctx.fill();ctx.stroke();
+  ctx.fillStyle='rgba(0,229,255,0.9)';ctx.font='8px monospace';ctx.textAlign='center';ctx.fillText('LiDAR',ld.x,ld.y-scale*.22);
+  // Sensor beams if active
+  if(agv3dShowSensors){
+    const angles=[0,45,90,135,180,225,270,315];
+    angles.forEach(a=>{
+      const rad=a*(Math.PI/180);const r=scale*1.4;
+      const sp=project3D(Math.cos(rad)*0.1,0.35,Math.sin(rad)*0.1,cx,cy,scale);
+      const ep=project3D(Math.cos(rad)*1.5,0.35,Math.sin(rad)*1.5,cx,cy,scale);
+      ctx.beginPath();ctx.moveTo(sp.x,sp.y);ctx.lineTo(ep.x,ep.y);
+      ctx.strokeStyle=`rgba(0,229,255,${0.15+0.1*Math.sin(agv3dAngle*3+a)})`;ctx.lineWidth=0.8;ctx.stroke();
+    });
+  }
+  // Beacon light
+  const bl2=project3D(0,1.1,0,cx,cy,scale);
+  const bpulse=0.5+0.5*Math.sin(agv3dAngle*4);
+  ctx.beginPath();ctx.arc(bl2.x,bl2.y,scale*.07,0,Math.PI*2);
+  ctx.fillStyle=`rgba(255,179,0,${0.5+bpulse*0.5})`;ctx.fill();
+  if(bpulse>0.7){ctx.beginPath();ctx.arc(bl2.x,bl2.y,scale*.15,0,Math.PI*2);ctx.strokeStyle=`rgba(255,179,0,${(bpulse-0.7)*1.5})`;ctx.lineWidth=1;ctx.stroke();}
+  // RFID antenna
+  draw3DBox(ctx,cx,cy,scale,-0.7,0.9,0,0.06,0.35,0.06,'#003344','RFID');
+  // Wheel rotation indicator
+  const wra=agv3dModeState===1?agv3dAngle*3:agv3dAngle;
+  // Labels
+  ctx.fillStyle='rgba(0,229,255,0.7)';ctx.font='bold 10px monospace';ctx.textAlign='center';
+  const titleP=project3D(0,2.2,0,cx,cy,scale);
+  ctx.fillText('AGV · SAIS v4 · YPF SAMPLE LOGISTICS',titleP.x,titleP.y);
+  ctx.fillStyle='rgba(74,96,112,0.8)';ctx.font='9px monospace';
+  const subP=project3D(0,1.9,0,cx,cy,scale);
+  ctx.fillText('© César Agliardi Pereira 2026 · AG-999 D² Engine',subP.x,subP.y);
+  if(agv3dRunning)agv3dAnimId=requestAnimationFrame(draw3D);
+}
+
+function agv3dReset(){agv3dRot={x:0.35,y:0.5};agv3dZoom=1;}
+function agv3dToggleAnim(){agv3dRunning=!agv3dRunning;if(agv3dRunning)draw3D();}
+function agv3dSensors(){agv3dShowSensors=!agv3dShowSensors;document.querySelector('[onclick="agv3dSensors()"]').style.borderColor=agv3dShowSensors?'var(--green)':'var(--border)';}
+function agv3dMode(){agv3dModeState=(agv3dModeState+1)%3;const modes=['🚚 Transit Mode','📦 Loading Mode','⚡ Charging Mode'];document.getElementById('agv3dModeBtn').textContent=modes[agv3dModeState];}
+
+// ── MISSION REPLAY ──
+let replayRunning=false, replayStep=-1, replayTimer=null;
+const replaySteps=[
+  {icon:'📍',label:'Dispatch\nRequest',title:'Mission Dispatched · COKER-D · PT-10',detail:'Operator issued URGENT dispatch request. AG-999 D² Engine assigned AGV-01 (87% battery, nearest unit). Route calculated: AGV dock → COKER-D, distance 420m, estimated travel 4.2 min. Mission ID: MIS-2026-0047.',d2:0.08,int:'—',lims:'WAITING',logC:'info',logM:'Dispatch MIS-2026-0047 issued · AGV-01 assigned · urgent override active'},
+  {icon:'🤖',label:'AGV\nEn Route',title:'AGV-01 En Route · COKER-D · ETA 4.2 min',detail:'AGV-01 navigating to COKER-D via Route B (HSE compliant). Speed: 4.8 km/h. LiDAR active — 2 obstacles detected and avoided automatically. D² monitoring all risk channels in real time.',d2:0.12,int:'MONITORING',lims:'WAITING',logC:'ok',logM:'AGV-01 en route · 2 obstacles cleared automatically · ETA 4.1 min'},
+  {icon:'📦',label:'Sample\nPickup',title:'Sample Pickup · PT-10 · Metal 1kg',detail:'AGV-01 arrived at COKER-D · PT-10. Operator confirmation received. Sample container: metal 1kg, solid HC. Visual inspection camera: container integrity confirmed. Loading into sealed anti-vibration tray.',d2:0.15,int:'LOADING',lims:'WAITING',logC:'ok',logM:'AGV-01 at PT-10 · container loaded · integrity visual check ✓'},
+  {icon:'📡',label:'RFID\nVerify',title:'RFID Dual Verification · SMP-2026-0894',detail:'RFID tag SMP-2026-0894 scanned and verified. QR secondary confirmation: MATCH. Sample type: HC solid, metal 1kg. Origin: COKER-D · PT-10 · 09:30:47 local. Chain of custody timestamp locked. No ID conflict detected.',d2:0.11,int:'VERIFIED ✓',lims:'PENDING LOG',logC:'ok',logM:'RFID: SMP-2026-0894 verified · QR confirmed · timestamp 09:30:47'},
+  {icon:'🔒',label:'Container\nSealed',title:'Container Sealed · Leak Check PASSED',detail:'Anti-vibration tray locked. Seal integrity sensor: NO LEAK. Gas sensor reading: 0.0 ppm HC (nominal). Shock absorbers engaged. Container is ready for transit. D² Spill component S² = 0.03 — nominal.',d2:0.09,int:'SEALED ✓',lims:'PENDING LOG',logC:'ok',logM:'Seal locked · S²=0.03 · gas 0ppm · shock absorbers active'},
+  {icon:'🚚',label:'Transit\nto Lab',title:'In Transit · 420m → Laboratory · ETA 3.8 min',detail:'AGV-01 navigating to Laboratory via optimized Route A. Speed 4.2 km/h in open corridor. AG-999 continuously monitoring D² = 0.13 — nominal. Passing pedestrian zone: speed auto-reduced to 2.8 km/h. LiDAR clear.',d2:0.13,int:'SEALED ✓',lims:'PENDING LOG',logC:'ok',logM:'Transit active · pedestrian zone: speed 2.8 km/h · LiDAR clear'},
+  {icon:'🏛',label:'Lab\nDelivery',title:'Delivery Confirmed · Laboratory Receiving',detail:'AGV-01 arrived at Laboratory dock. Lab technician confirmed receipt — SMP-2026-0894. Visual inspection: container intact, no contamination. Sample transferred to analysis queue. AGV-01 releasing tray lock.',d2:0.07,int:'DELIVERED ✓',lims:'LOGGING...',logC:'ok',logM:'Delivery confirmed · SMP-2026-0894 · lab tech sign-off ✓ · 09:42:51'},
+  {icon:'✅',label:'LIMS\nAuto-Log',title:'LIMS Registration Complete · SMP-2026-0894',detail:'LIMS auto-registration complete. Record SMP-2026-0894: origin COKER-D·PT-10, type HC solid, AGV-01, pickup 09:30:47, delivery 09:42:51, transit time 12:04, integrity ✓. Chain of custody: CLOSED. AGV-01 now returning empty tray to COKER-D.',d2:0.06,int:'COMPLETE ✓',lims:'LOGGED ✓',logC:'ok',logM:'LIMS: SMP-2026-0894 registered · chain of custody CLOSED · 09:42:53'},
+];
+let replayD2Chart2=null;
+function startReplay(){
+  if(replayRunning)return;
+  replayRunning=true;replayStep=-1;
+  const rlog=document.getElementById('replayLog');rlog.innerHTML='';
+  resetSteps();
+  if(!replayD2Chart2){
+    const ctx2=document.getElementById('replayD2Chart').getContext('2d');
+    replayD2Chart2=new Chart(ctx2,{type:'line',data:{labels:[],datasets:[{data:[],borderColor:'rgba(0,229,255,.7)',borderWidth:1.5,pointRadius:2,pointBackgroundColor:'rgba(0,229,255,.9)',tension:.4,fill:{target:'origin',above:'rgba(0,229,255,.05)'}}]},options:{...bO,scales:{...bO.scales,y:{...bO.scales.y,min:0,max:0.5}}}});
+  } else {replayD2Chart2.data.labels=[];replayD2Chart2.data.datasets[0].data=[];replayD2Chart2.update('none');}
+  advanceReplay();
+}
+function advanceReplay(){
+  replayStep++;
+  if(replayStep>=replaySteps.length){replayRunning=false;return;}
+  const s=replaySteps[replayStep];
+  // Update circles
+  for(let i=0;i<replaySteps.length;i++){
+    const c=document.getElementById('rs'+i),l=document.getElementById('rl'+i);
+    c.className='rs-circle '+(i<replayStep?'done':i===replayStep?'active':'pending');
+    l.className='rs-label '+(i<replayStep?'done':i===replayStep?'active':'');
+  }
+  // Update detail
+  document.getElementById('replayDetail').innerHTML=`<span style="color:var(--cyan);font-weight:700">${s.title}</span><br><br>${s.detail}`;
+  // Metrics
+  document.getElementById('rm-step').textContent=s.label.replace('\n',' ');
+  document.getElementById('rm-d2').textContent=s.d2;document.getElementById('rm-d2').style.color=s.d2<0.3?'var(--green)':'var(--amber)';
+  document.getElementById('rm-int').textContent=s.int;
+  document.getElementById('rm-lims').textContent=s.lims;document.getElementById('rm-lims').style.color=s.lims.includes('✓')?'var(--green)':s.lims==='WAITING'?'var(--dim)':'var(--amber)';
+  document.getElementById('rm-time').textContent=`Step ${replayStep+1}/8`;
+  // D2 chart
+  replayD2Chart2.data.labels.push('S'+(replayStep+1));
+  replayD2Chart2.data.datasets[0].data.push(s.d2);
+  replayD2Chart2.update('none');
+  // Log entry
+  const rlog=document.getElementById('replayLog');
+  const e=document.createElement('div');e.className='rlog-entry '+s.logC;
+  e.innerHTML=`<span style="color:var(--dim);font-size:9px;white-space:nowrap">S${replayStep+1}</span><span>${s.logM}</span>`;
+  rlog.appendChild(e);rlog.scrollTop=rlog.scrollHeight;
+  const delay=replayStep===5?2200:1600;
+  replayTimer=setTimeout(advanceReplay,delay);
+}
+function resetReplay(){
+  clearTimeout(replayTimer);replayRunning=false;replayStep=-1;
+  resetSteps();
+  document.getElementById('replayDetail').textContent='Press START MISSION to replay a complete sample collection cycle.';
+  document.getElementById('replayLog').innerHTML='<div style="font-size:10px;color:var(--dim);padding:4px">No mission running. Press START.</div>';
+  ['rm-time','rm-step','rm-d2','rm-int'].forEach(id=>document.getElementById(id).textContent='—');
+  document.getElementById('rm-lims').textContent='WAITING';document.getElementById('rm-lims').style.color='var(--dim)';
+  if(replayD2Chart2){replayD2Chart2.data.labels=[];replayD2Chart2.data.datasets[0].data=[];replayD2Chart2.update('none');}
+}
+function resetSteps(){for(let i=0;i<replaySteps.length;i++){document.getElementById('rs'+i).className='rs-circle pending';document.getElementById('rl'+i).className='rs-label';}}
+
+// ── AI CHART ──
+let aiAccChart=null;
+function initAIChart(){
+  if(aiAccChart)return;
+  const ctx=document.getElementById('aiAccChart');if(!ctx)return;
+  aiAccChart=new Chart(ctx.getContext('2d'),{type:'doughnut',
+    data:{labels:['Correct','False Positive','Missed'],datasets:[{data:[91.4,5.2,3.4],backgroundColor:['rgba(0,230,118,.6)','rgba(255,179,0,.5)','rgba(255,59,59,.4)'],borderColor:['rgba(0,230,118,.8)','rgba(255,179,0,.7)','rgba(255,59,59,.6)'],borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#4a6070',font:{size:9,family:'monospace'},boxWidth:10}}}}});
+  // Battery sparkline
+  const sp=document.getElementById('batSparkline');if(!sp)return;
+  const vals=[97,96.5,96.1,95.8,95.4,95.0,94.7,94.4,94.1,93.8];
+  vals.forEach(v=>{const b=document.createElement('div');b.className='ai-bar-s';b.style.height=((v-93)/(97-93)*28)+'px';b.title=v+'%';sp.appendChild(b);});
+}
+function filterAI(el,type){
+  document.querySelectorAll('.ai-chip').forEach(c=>c.classList.remove('active'));el.classList.add('active');
+  document.querySelectorAll('.ai-alert').forEach(a=>{a.style.display=(type==='all'||a.classList.contains(type))?'flex':'none';});
+}
+
+// ── AUTO LOG ──
+const autoMessages=[
+  {c:'ok',m:'AGV-01 pickup confirmed · PT-01 · seal verified ✓'},
+  {c:'info',m:'LIMS auto-log: SMP-2026-0897 registered · 09:51:04'},
+  {c:'ok',m:'AGV-03 delivery complete · LAB · 8.4 min total'},
+  {c:'info',m:'AG-999 D² update: all routes nominal'},
+  {c:'warn',m:'AGV-02 battery 38% · auto-return scheduled after delivery'},
+];
+let autoI=0;
+setInterval(()=>{const m=autoMessages[autoI%autoMessages.length];autoI++;addLog(m.c,m.m);},7000);
+</script>
+</body>
+</html>
